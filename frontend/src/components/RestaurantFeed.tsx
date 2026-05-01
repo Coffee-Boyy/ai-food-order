@@ -1,5 +1,5 @@
 import { useQuery } from 'react-query'
-import axios from 'axios'
+import { apiClient } from '../lib/apiClient'
 import { motion } from 'framer-motion'
 import { StarIcon, MapPinIcon, ClockIcon } from '@heroicons/react/24/solid'
 import { StarIcon as StarOutlineIcon, BuildingStorefrontIcon } from '@heroicons/react/24/outline'
@@ -36,8 +36,7 @@ export default function RestaurantFeed() {
   const { data: feedData, isLoading, error, refetch } = useQuery<FeedData>(
     ['restaurant-feed'],
     async () => {
-      const response = await axios.get('/api/orders/feed')
-      return response.data
+      return apiClient.get<FeedData>('/api/orders/feed')
     },
     {
       refetchInterval: 60000, // Refetch every minute

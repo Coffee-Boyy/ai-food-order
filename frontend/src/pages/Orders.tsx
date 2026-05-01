@@ -1,13 +1,10 @@
 import { useState } from 'react'
-import { useQuery, useMutation } from 'react-query'
-import { useAuth } from '../hooks/useAuth'
-import axios from 'axios'
+import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { apiClient } from '../lib/apiClient'
 import { motion } from 'framer-motion'
 import {
   ShoppingBagIcon,
   ArrowPathIcon,
-  CalendarIcon,
-  ClockIcon,
   CurrencyDollarIcon,
   EyeIcon,
   ChevronDownIcon,
@@ -206,13 +203,31 @@ interface OrderStats {
 
 export default function Orders() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
+  const queryClient = useQueryClient()
+
+  const syncOrdersMutation = useMutation(
+    async () => {
+      return apiClient.post<{ syncedCount?: number }>('/api/orders/sync')
+    },
+    {
+      onSuccess: (data) => {
+        toast.success(`Synced ${data.syncedCount ?? 0} orders from UberEats`)
+        queryClient.invalidateQueries(['orders'])
+        queryClient.invalidateQueries(['orderStats'])
+        queryClient.invalidateQueries(['dashboard'])
+      },
+      onError: (error: any) => {
+        toast.error(error?.response?.data?.message || 'Failed to sync orders')
+      }
+    }
+  )
 
   // Fetch orders from database
   const { data: ordersData, isLoading: ordersLoading } = useQuery(
     ['orders'],
     async () => {
-      const response = await axios.get(`/api/orders`)
-      const orders = response.data.orders as any[]
+      const response = await apiClient.get<{ orders: any[] }>(`/api/orders`)
+      const orders = response.orders as any[]
       return orders.map((o) => ({
         ...o,
         total_amount: typeof o.total_amount === 'string' ? parseFloat(o.total_amount) : o.total_amount,
@@ -227,8 +242,8 @@ export default function Orders() {
   const { data: statsData, isLoading: statsLoading } = useQuery(
     ['orderStats'],
     async () => {
-      const response = await axios.get('/api/orders/stats')
-      const stats = response.data?.stats || null
+      const response = await apiClient.get<{ stats: any }>('/api/orders/stats')
+      const stats = response?.stats || null
       if (!stats) return null
       return {
         total_orders: typeof stats.total_orders === 'string' ? parseInt(stats.total_orders, 10) : stats.total_orders,
@@ -603,6 +618,14 @@ export default function Orders() {
           <h1 className="text-2xl font-bold text-gray-900">Order History</h1>
           <p className="text-gray-600">Your UberEats order history and analytics</p>
         </div>
+        <button
+          onClick={() => syncOrdersMutation.mutate()}
+          disabled={syncOrdersMutation.isLoading}
+          className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-60"
+        >
+          <ArrowPathIcon className={`h-4 w-4 mr-2 ${syncOrdersMutation.isLoading ? 'animate-spin' : ''}`} />
+          {syncOrdersMutation.isLoading ? 'Syncing...' : 'Sync from UberEats'}
+        </button>
       </div>
 
       {/* Auto-loading message */}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from 'react-query'
-import axios from 'axios'
+import { apiClient } from '../lib/apiClient'
 
 interface User {
   id: string
@@ -15,11 +15,13 @@ export function useAuth() {
   const [sessionToken, setSessionToken] = useState<string | null>(null)
 
   // Get the first available session
-  const { data: sessionData, error } = useQuery(
+  const { error } = useQuery(
     ['session'],
     async () => {
-      const response = await axios.get('/api/auth/session')
-      return response.data
+      return apiClient.get<{
+        user: User
+        sessionToken: string | null
+      }>('/api/auth/session')
     },
     {
       retry: 3,
@@ -27,7 +29,11 @@ export function useAuth() {
       onSuccess: (data) => {
         setUser(data.user)
         setSessionToken(data.sessionToken)
-        localStorage.setItem('sessionToken', data.sessionToken)
+        if (data.sessionToken) {
+          localStorage.setItem('sessionToken', data.sessionToken)
+        } else {
+          localStorage.removeItem('sessionToken')
+        }
         setLoading(false)
       },
       onError: (error) => {

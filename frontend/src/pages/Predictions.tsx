@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { useAuth } from '../hooks/useAuth'
-import axios from 'axios'
+import { apiClient } from '../lib/apiClient'
 import { motion } from 'framer-motion'
 import {
   ChartBarIcon,
@@ -43,8 +43,8 @@ export default function Predictions() {
   const { data: predictionsData, isLoading: predictionsLoading } = useQuery(
     ['predictions'],
     async () => {
-      const response = await axios.get('/api/predictions')
-      return response.data.predictions as Prediction[]
+      const response = await apiClient.get<{ predictions: Prediction[] }>('/api/predictions')
+      return response.predictions as Prediction[]
     },
     {
       enabled: !!user
@@ -55,8 +55,8 @@ export default function Predictions() {
   const { data: accuracyData, isLoading: accuracyLoading } = useQuery(
     ['predictionAccuracy'],
     async () => {
-      const response = await axios.get('/api/predictions/accuracy')
-      return response.data.accuracy
+      const response = await apiClient.get<{ accuracy: any }>('/api/predictions/accuracy')
+      return response.accuracy
     },
     {
       enabled: !!user
@@ -66,14 +66,13 @@ export default function Predictions() {
   // Generate prediction mutation
   const generateMutation = useMutation(
     async () => {
-      const response = await axios.post('/api/predictions/generate', {
+      return apiClient.post('/api/predictions/generate', {
         dayOfWeek: selectedDay,
         timeOfDay: selectedTime
       })
-      return response.data
     },
     {
-      onSuccess: (data) => {
+      onSuccess: () => {
         toast.success('Prediction generated successfully!')
         queryClient.invalidateQueries(['predictions'])
         queryClient.invalidateQueries(['predictionAccuracy'])
@@ -88,7 +87,7 @@ export default function Predictions() {
   // Feedback mutation
   const feedbackMutation = useMutation(
     async ({ predictionId, isCorrect }: { predictionId: string; isCorrect: boolean }) => {
-      await axios.post('/api/predictions/feedback', {
+      await apiClient.post('/api/predictions/feedback', {
         predictionId,
         isCorrect
       })

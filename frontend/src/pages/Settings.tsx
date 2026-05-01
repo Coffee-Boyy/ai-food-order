@@ -1,12 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { useAuth } from '../hooks/useAuth'
-import axios from 'axios'
+import { apiClient } from '../lib/apiClient'
 import { motion } from 'framer-motion'
 import {
   UserIcon,
   CogIcon,
-  BellIcon,
   ShieldCheckIcon,
   TrashIcon
 } from '@heroicons/react/24/outline'
@@ -26,6 +25,7 @@ export default function Settings() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
+  const [cookieHeader, setCookieHeader] = useState('')
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -36,8 +36,8 @@ export default function Settings() {
   const { data: profileData, isLoading } = useQuery(
     ['userProfile'],
     async () => {
-      const response = await axios.get('/api/users/profile')
-      return response.data.user as UserProfile
+      const response = await apiClient.get<{ user: UserProfile }>('/api/users/profile')
+      return response.user as UserProfile
     },
     {
       enabled: !!user,
@@ -54,11 +54,10 @@ export default function Settings() {
   // Update profile mutation
   const updateProfileMutation = useMutation(
     async (data: typeof formData) => {
-      const response = await axios.put('/api/users/profile', {
+      return apiClient.put('/api/users/profile', {
         firstName: data.firstName,
         lastName: data.lastName
       })
-      return response.data
     },
     {
       onSuccess: () => {
@@ -75,7 +74,7 @@ export default function Settings() {
   // Delete account mutation
   const deleteAccountMutation = useMutation(
     async () => {
-      await axios.delete('/api/users/account')
+      await apiClient.delete('/api/users/account')
     },
     {
       onSuccess: () => {
@@ -85,6 +84,54 @@ export default function Settings() {
       },
       onError: () => {
         toast.error('Failed to delete account')
+      }
+    }
+  )
+
+  const { data: uberConnection } = useQuery(
+    ['uberConnection'],
+    async () => {
+      const response = await apiClient.get<{
+        connected: boolean
+        lastImportedAt: string | null
+        lastSyncAt: string | null
+      }>('/api/uber/session/status')
+      return response
+    },
+    {
+      enabled: !!user
+    }
+  )
+
+  const connectUberMutation = useMutation(
+    async (rawCookie: string) => {
+      return apiClient.post('/api/uber/session/import', {
+        cookieHeader: rawCookie
+      })
+    },
+    {
+      onSuccess: () => {
+        toast.success('UberEats session connected')
+        setCookieHeader('')
+        queryClient.invalidateQueries(['uberConnection'])
+      },
+      onError: (error: any) => {
+        toast.error(error?.response?.data?.message || 'Failed to connect UberEats session')
+      }
+    }
+  )
+
+  const disconnectUberMutation = useMutation(
+    async () => {
+      await apiClient.delete('/api/uber/session')
+    },
+    {
+      onSuccess: () => {
+        toast.success('UberEats session disconnected')
+        queryClient.invalidateQueries(['uberConnection'])
+      },
+      onError: () => {
+        toast.error('Failed to disconnect UberEats session')
       }
     }
   )
@@ -258,11 +305,59 @@ export default function Settings() {
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
               <h3 className="font-medium text-gray-900">UberEats Connection</h3>
-              <p className="text-sm text-gray-500">Connected to your UberEats account</p>
+              <p className="text-sm text-gray-500">
+                {uberConnection?.connected
+                  ? 'Connected to your UberEats account'
+                  : 'Not connected. Paste a session cookie to link your account.'}
+              </p>
+              {uberConnection?.lastImportedAt && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Connected: {new Date(uberConnection.lastImportedAt).toLocaleString()}
+                </p>
+              )}
+              {uberConnection?.lastSyncAt && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Last sync: {new Date(uberConnection.lastSyncAt).toLocaleString()}
+                </p>
+              )}
             </div>
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-              Connected
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                uberConnection?.connected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+              }`}
+            >
+              {uberConnection?.connected ? 'Connected' : 'Not Connected'}
             </span>
+          </div>
+
+          <div className="p-4 bg-gray-50 rounded-lg space-y-3">
+            <label className="block text-sm font-medium text-gray-700">UberEats Cookie Header</label>
+            <textarea
+              value={cookieHeader}
+              onChange={(e) => setCookieHeader(e.target.value)}
+              placeholder="sid=...; csrf_token=...;"
+              rows={3}
+              className="input-field"
+            />
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => connectUberMutation.mutate(cookieHeader)}
+                disabled={!cookieHeader.trim() || connectUberMutation.isLoading}
+                className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-60"
+              >
+                {connectUberMutation.isLoading ? 'Connecting...' : 'Connect Session'}
+              </button>
+              <button
+                onClick={() => disconnectUberMutation.mutate()}
+                disabled={disconnectUberMutation.isLoading || !uberConnection?.connected}
+                className="px-3 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-60"
+              >
+                Disconnect
+              </button>
+            </div>
+            <p className="text-xs text-gray-500">
+              For Electron, this same endpoint can be called automatically after in-app login to avoid manual paste.
+            </p>
           </div>
 
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">

@@ -1,0 +1,19 @@
+{
+  "name": "ai-food-order",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI Food Order desktop shell",
+  "main": "electron/main.js",
+  "scripts": {
+    "frontend:dev": "pnpm --dir frontend dev",
+    "frontend:build": "pnpm --dir frontend build",
+    "electron:dev": "concurrently -k \"pnpm frontend:dev\" \"wait-on tcp:3005 && cross-env ELECTRON_START_URL=http://localhost:3005 electron .\"",
+    "electron:start": "electron ."
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^37.1.0",
+    "wait-on": "^8.0.3"
+  }
+}

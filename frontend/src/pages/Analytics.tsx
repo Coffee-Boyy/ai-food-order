@@ -1,6 +1,6 @@
 import { useQuery } from 'react-query'
 import { useAuth } from '../hooks/useAuth'
-import axios from 'axios'
+import { apiClient } from '../lib/apiClient'
 import { motion } from 'framer-motion'
 import {
   ChartBarIcon,
@@ -44,8 +44,7 @@ export default function Analytics() {
   const { data: analyticsData, isLoading } = useQuery(
     ['analytics'],
     async () => {
-      const response = await axios.get('/api/analytics/patterns')
-      return response.data as AnalyticsData
+      return apiClient.get<AnalyticsData>('/api/analytics/patterns')
     },
     {
       enabled: !!user

@@ -1,6 +1,6 @@
 import { useQuery } from 'react-query'
 import { useAuth } from '../hooks/useAuth'
-import axios from 'axios'
+import { apiClient } from '../lib/apiClient'
 import { motion } from 'framer-motion'
 import {
   ShoppingBagIcon,
@@ -38,8 +38,7 @@ export default function Dashboard() {
   const { data: dashboardData, isLoading, error } = useQuery<DashboardData>(
     ['dashboard'],
     async () => {
-      const response = await axios.get('/api/users/dashboard')
-      return response.data
+      return apiClient.get<DashboardData>('/api/users/dashboard')
     },
     {
       enabled: !!user,
