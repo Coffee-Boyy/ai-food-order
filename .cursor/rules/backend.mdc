@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+Reload the backend by running "docker compose up -d --build backend" since we are running the backend application in docker.
