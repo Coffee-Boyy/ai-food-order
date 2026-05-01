@@ -28,8 +28,11 @@ Authentication/session checks and all data operations are handled by Electron ma
 
 ## Prerequisites
 
+- macOS 26 (Sequoia) or later on an Apple Silicon Mac
+- Apple Intelligence enabled (System Settings → Apple Intelligence & Siri)
 - Node.js 18+ (recommended)
 - pnpm (or Corepack-enabled Node)
+- Xcode 16.4+ (for the native Foundation Models helper)
 
 ## Getting Started
 
@@ -45,7 +48,20 @@ If Electron is run for the first time and its postinstall was blocked, allow it:
 pnpm approve-builds
 ```
 
-### 2. Run the Electron desktop app in development mode
+### 2. Build the native Foundation Models helper
+
+The on-device AI prediction feature requires a compiled Swift helper.  Run this
+once after cloning (and after any changes to the Swift source):
+
+```bash
+pnpm build:native
+```
+
+This compiles `electron/native/foundation-model-predictor/` with `swift build`
+and places the binary at
+`electron/native/foundation-model-predictor/.build/release/FoodPredictor`.
+
+### 3. Run the Electron desktop app in development mode
 
 ```bash
 pnpm electron:dev
@@ -63,6 +79,25 @@ Run these inside `frontend`:
 - `pnpm lint` - run ESLint
 - `pnpm type-check` - run TypeScript checks
 
+## AI Predictions
+
+Predictions are generated entirely on-device using Apple's
+[Foundation Models framework](https://developer.apple.com/documentation/FoundationModels).
+No order data is sent to any external server — only compact pattern summaries
+(top restaurants, common items, recency signals) are passed to the model.
+
+The model must be available on the device:
+
+| Requirement | Details |
+|---|---|
+| Hardware | Apple Silicon Mac (M1 or later) |
+| OS | macOS 26 or later |
+| Apple Intelligence | Enabled in System Settings |
+| Binary | `pnpm build:native` must have been run |
+
+If Apple Intelligence is unavailable, the Predictions page displays an
+actionable error message explaining the reason and how to resolve it.
+
 ## Root Scripts
 
 Run these from the repository root:
@@ -71,6 +106,8 @@ Run these from the repository root:
 - `pnpm frontend:dev` - run Vite frontend
 - `pnpm electron:dev` - run desktop app (Vite + Electron)
 - `pnpm electron:start` - start Electron against a built frontend (`frontend/dist`)
+- `pnpm build:native` - compile the Swift Foundation Models helper
+- `pnpm test:electron` - run Electron-side unit tests (no test framework needed)
 
 You can point Electron to a different backend URL with:
 

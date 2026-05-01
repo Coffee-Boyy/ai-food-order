@@ -9,6 +9,8 @@
     "frontend:build": "pnpm --dir frontend build",
     "electron:dev": "concurrently -k \"pnpm frontend:dev\" \"wait-on tcp:3005 && cross-env ELECTRON_START_URL=http://localhost:3005 electron .\"",
     "electron:start": "electron .",
+    "build:native": "swift build -c release --package-path electron/native/foundation-model-predictor",
+    "test:electron": "node electron/tests/llm-prediction-service.test.js",
     "postinstall": "electron-rebuild -f -w better-sqlite3"
   },
   "dependencies": {

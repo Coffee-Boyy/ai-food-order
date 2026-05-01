@@ -1,5 +1,7 @@
 const sessionPersistence = require('./session-persistence');
 const ordersPersistence = require('./orders-persistence');
+const predictionsPersistence = require('./predictions-persistence');
+const { generatePrediction } = require('./llm-prediction-service');
 
 const UBER_EATS_BASE_URL = 'https://www.ubereats.com';
 
@@ -339,7 +341,7 @@ async function fetchUberOrdersPaginated(session, onProgress, options) {
 
 async function runFullOrderSync(session, onProgress) {
   const { rawByKey, pages } = await fetchUberOrdersPaginated(session, onProgress, { earlyStop: false });
-  const normalizedOrders = [...rawByKey.values()].map(normalizeOrder);
+  const normalizedOrders = [...rawByKey.values()].filter(isCompleteRawOrder).map(normalizeOrder);
   const syncedAt = new Date().toISOString();
   return { normalizedOrders, pages, syncedAt };
 }
@@ -362,13 +364,26 @@ async function runIncrementalOrderSync(session, userId, onProgress) {
     earlyStop: knownKeySet.size > 0,
     knownKeySet
   });
-  const newNormalized = [...rawByKey.values()].map(normalizeOrder);
+  const newNormalized = [...rawByKey.values()].filter(isCompleteRawOrder).map(normalizeOrder);
   if (newNormalized.length === 0) {
     return { merged: existing, pages, newCount: 0, syncedAt: ordersPersistence.getLastSyncAt(userId) };
   }
   const merged = mergeNormalizedOrders(existing, newNormalized);
   const syncedAt = new Date().toISOString();
   return { merged, pages, newCount: newNormalized.length, syncedAt };
+}
+
+/**
+ * Returns true only when the raw UberEats order has both a real timestamp
+ * and a non-zero price.  Orders that fail either check are missing essential
+ * data and would show up as $0 / today's date in the UI.
+ */
+function isCompleteRawOrder(rawOrder) {
+  const base = rawOrder?.baseEaterOrder || rawOrder;
+  const hasDate = Boolean(base?.completedAt || base?.created_at || rawOrder?.created_at);
+  const fareInfo = rawOrder?.fareInfo || base?.fareInfo || null;
+  const hasPrice = Boolean(fareInfo?.totalPrice && fareInfo.totalPrice > 0);
+  return hasDate && hasPrice;
 }
 
 function normalizeOrder(rawOrder) {
@@ -611,6 +626,11 @@ async function handleApiRequest(method, path, body) {
     } catch (err) {
       console.error('[orders-persistence] Failed to clear orders', err);
     }
+    try {
+      predictionsPersistence.clearPredictionsForUser(userId);
+    } catch (err) {
+      console.error('[predictions-persistence] Failed to clear predictions', err);
+    }
     sessionPersistence.clear();
     return { message: 'Account data cleared' };
   }
@@ -620,27 +640,55 @@ async function handleApiRequest(method, path, body) {
 
   if (method === 'POST' && path === '/api/predictions/generate') {
     if (orders.length === 0) throw error(400, 'Sync orders before generating predictions');
-    const scoped = orders.filter((o) => o.day_of_week === body?.dayOfWeek && o.time_of_day === body?.timeOfDay);
-    const pool = scoped.length > 0 ? scoped : orders;
-    const top = pool[0];
+    const dayOfWeek = body?.dayOfWeek ?? new Date().getDay();
+    const timeOfDay = body?.timeOfDay || 'lunch';
+    let llmResult;
+    try {
+      llmResult = await generatePrediction(orders, dayOfWeek, timeOfDay);
+    } catch (llmErr) {
+      const modelErrors = new Set([
+        'deviceNotEligible',
+        'appleIntelligenceNotEnabled',
+        'modelNotReady',
+        'modelUnavailable',
+        'helperNotFound'
+      ]);
+      if (modelErrors.has(llmErr.code)) {
+        throw Object.assign(error(503, llmErr.message), { model_status: llmErr.code });
+      }
+      throw error(500, `Prediction failed: ${llmErr.message}`);
+    }
     const prediction = {
       id: `pred_${Date.now()}`,
-      predicted_restaurant: top?.restaurant_name || 'Unknown Restaurant',
-      predicted_items: (top?.items || []).slice(0, 3).map((i) => i.title || i.name).filter(Boolean),
-      confidence_score: scoped.length > 0 ? 0.82 : 0.55,
-      day_of_week: body?.dayOfWeek ?? new Date().getDay(),
-      time_of_day: body?.timeOfDay || 'lunch',
-      created_at: new Date().toISOString()
+      predicted_restaurant: llmResult.predicted_restaurant,
+      predicted_items: llmResult.predicted_items,
+      confidence_score: llmResult.confidence_score,
+      reasoning: llmResult.reasoning,
+      source: llmResult.source,
+      day_of_week: dayOfWeek,
+      time_of_day: timeOfDay,
+      created_at: llmResult.created_at
     };
     store.predictionsByUser.set(userId, [prediction, ...predictions]);
+    try {
+      predictionsPersistence.savePrediction(userId, prediction);
+    } catch (err) {
+      console.error('[predictions-persistence] Failed to save prediction', err);
+    }
     return { prediction };
   }
 
   if (method === 'POST' && path === '/api/predictions/feedback') {
+    const isCorrect = Boolean(body?.isCorrect);
     const updated = predictions.map((prediction) =>
-      prediction.id === body?.predictionId ? { ...prediction, is_correct: Boolean(body?.isCorrect) } : prediction
+      prediction.id === body?.predictionId ? { ...prediction, is_correct: isCorrect } : prediction
     );
     store.predictionsByUser.set(userId, updated);
+    try {
+      predictionsPersistence.updateFeedback(userId, body?.predictionId, isCorrect);
+    } catch (err) {
+      console.error('[predictions-persistence] Failed to update feedback', err);
+    }
     return { success: true };
   }
 
@@ -691,6 +739,18 @@ function bootstrapPersistedOrders() {
     }
   } catch (err) {
     console.error('[orders-persistence] Failed to load orders from disk', err);
+  }
+}
+
+function bootstrapPersistedPredictions() {
+  const userId = APP_USER_ID;
+  try {
+    const predictions = predictionsPersistence.loadPredictionsForUser(userId);
+    if (predictions.length > 0) {
+      store.predictionsByUser.set(userId, predictions);
+    }
+  } catch (err) {
+    console.error('[predictions-persistence] Failed to load predictions from disk', err);
   }
 }
 
@@ -749,6 +809,7 @@ module.exports = {
   executeOrderSyncWithProgressForDefaultUser,
   restorePersistedUberSession,
   bootstrapPersistedOrders,
+  bootstrapPersistedPredictions,
   refreshOrdersFromUberOnStartup,
   loadUberEatsUserOnStartup
 };

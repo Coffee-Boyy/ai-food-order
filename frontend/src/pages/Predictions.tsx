@@ -12,6 +12,7 @@ import {
   XCircleIcon
 } from '@heroicons/react/24/outline'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { MODEL_STATUS_MESSAGES } from '../lib/predictionModelStatus'
 import toast from 'react-hot-toast'
 
 interface Prediction {
@@ -23,6 +24,8 @@ interface Prediction {
   time_of_day: string
   created_at: string
   is_correct?: boolean
+  reasoning?: string
+  source?: string
 }
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -63,6 +66,8 @@ export default function Predictions() {
     }
   )
 
+  const [modelStatusError, setModelStatusError] = useState<{ title: string; detail: string } | null>(null)
+
   // Generate prediction mutation
   const generateMutation = useMutation(
     async () => {
@@ -73,13 +78,24 @@ export default function Predictions() {
     },
     {
       onSuccess: () => {
+        setModelStatusError(null)
         toast.success('Prediction generated successfully!')
         queryClient.invalidateQueries(['predictions'])
         queryClient.invalidateQueries(['predictionAccuracy'])
         queryClient.invalidateQueries(['dashboard'])
       },
       onError: (error: any) => {
-        toast.error(error.response?.data?.error || 'Failed to generate prediction')
+        const message: string = error?.message || ''
+        // Look for a known model-status code embedded in the error message
+        const knownCode = Object.keys(MODEL_STATUS_MESSAGES).find((code) =>
+          message.toLowerCase().includes(code.toLowerCase())
+        )
+        if (knownCode) {
+          setModelStatusError(MODEL_STATUS_MESSAGES[knownCode])
+        } else {
+          setModelStatusError(null)
+          toast.error(message || 'Failed to generate prediction')
+        }
       }
     }
   )
@@ -127,6 +143,18 @@ export default function Predictions() {
         <h1 className="text-2xl font-bold text-gray-900">AI Predictions</h1>
         <p className="text-gray-600">Get AI-powered food recommendations based on your order history</p>
       </div>
+
+      {/* Model status error banner */}
+      {modelStatusError && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-amber-200 bg-amber-50 p-4"
+        >
+          <p className="font-medium text-amber-800">{modelStatusError.title}</p>
+          <p className="mt-1 text-sm text-amber-700">{modelStatusError.detail}</p>
+        </motion.div>
+      )}
 
       {/* Prediction Generator */}
       <motion.div
@@ -257,18 +285,34 @@ export default function Predictions() {
                       {dayNames[prediction.day_of_week]} • {prediction.time_of_day}
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right space-y-1">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
                       {(prediction.confidence_score * 100).toFixed(0)}% confidence
                     </span>
+                    {prediction.source === 'apple-foundation-models' && (
+                      <div>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          <svg className="h-3 w-3" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
+                            <path d="M7 0a7 7 0 1 0 0 14A7 7 0 0 0 7 0zm.75 10.5h-1.5v-4h1.5v4zm0-5.5h-1.5V3.5h1.5V5z"/>
+                          </svg>
+                          On-device
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="mb-3">
+                <div className="mb-2">
                   <p className="text-sm text-gray-600">
                     <strong>Recommended items:</strong> {prediction.predicted_items.join(', ')}
                   </p>
                 </div>
+
+                {prediction.reasoning && (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-500 italic">{prediction.reasoning}</p>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-gray-500">

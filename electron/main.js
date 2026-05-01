@@ -14,11 +14,13 @@ try {
 
 const sessionPersistence = require('./services/session-persistence');
 const ordersPersistence = require('./services/orders-persistence');
+const predictionsPersistence = require('./services/predictions-persistence');
 const {
   handleApiRequest,
   executeOrderSyncWithProgressForDefaultUser,
   restorePersistedUberSession,
   bootstrapPersistedOrders,
+  bootstrapPersistedPredictions,
   refreshOrdersFromUberOnStartup,
   loadUberEatsUserOnStartup
 } = require('./services/api-service');
@@ -55,9 +57,12 @@ app.whenReady().then(() => {
   const userData = app.getPath('userData');
   sessionPersistence.setUserDataDirectory(userData);
   ordersPersistence.setUserDataDirectory(userData);
+  predictionsPersistence.setUserDataDirectory(userData);
   ordersPersistence.init();
+  predictionsPersistence.init();
   restorePersistedUberSession();
   bootstrapPersistedOrders();
+  bootstrapPersistedPredictions();
 
   ipcMain.handle('app:getVersion', () => app.getVersion());
   ipcMain.handle('api:request', async (_event, request) => {
@@ -146,6 +151,11 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   try {
     ordersPersistence.close();
+  } catch (_) {
+    /* ignore */
+  }
+  try {
+    predictionsPersistence.close();
   } catch (_) {
     /* ignore */
   }
