@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { useAuth } from '../hooks/useAuth'
 import { apiClient } from '../lib/apiClient'
-import { motion } from 'framer-motion'
 import {
   ChartBarIcon,
   ClockIcon,
@@ -146,23 +145,14 @@ export default function Predictions() {
 
       {/* Model status error banner */}
       {modelStatusError && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-amber-200 bg-amber-50 p-4"
-        >
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <p className="font-medium text-amber-800">{modelStatusError.title}</p>
           <p className="mt-1 text-sm text-amber-700">{modelStatusError.detail}</p>
-        </motion.div>
+        </div>
       )}
 
       {/* Prediction Generator */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="card"
-      >
+      <div className="card">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Generate New Prediction</h2>
           <SparklesIcon className="h-6 w-6 text-primary-600" />
@@ -218,16 +208,11 @@ export default function Predictions() {
             {generateMutation.isLoading ? 'Generating Prediction...' : 'Generate Prediction'}
           </span>
         </button>
-      </motion.div>
+      </div>
 
       {/* Accuracy Stats */}
       {accuracyData && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="card"
-        >
+        <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Prediction Accuracy</h2>
             <ChartBarIcon className="h-5 w-5 text-gray-400" />
@@ -253,16 +238,11 @@ export default function Predictions() {
               <p className="text-sm text-gray-600">Accuracy Rate</p>
             </div>
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* Recent Predictions */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.2 }}
-        className="card"
-      >
+      <div className="card">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Recent Predictions</h2>
           <ChartBarIcon className="h-5 w-5 text-gray-400" />
@@ -270,12 +250,9 @@ export default function Predictions() {
 
         <div className="space-y-4">
           {predictionsData && predictionsData.length > 0 ? (
-            predictionsData.map((prediction, index) => (
-              <motion.div
+            predictionsData.map((prediction) => (
+              <div
                 key={prediction.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
                 className="p-4 bg-gray-50 rounded-lg"
               >
                 <div className="flex items-start justify-between mb-3">
@@ -356,7 +333,7 @@ export default function Predictions() {
                     </div>
                   )}
                 </div>
-              </motion.div>
+              </div>
             ))
           ) : (
             <div className="text-center py-12">
@@ -375,7 +352,7 @@ export default function Predictions() {
             </div>
           )}
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

@@ -1,7 +1,6 @@
 import { useQuery } from 'react-query'
 import { useAuth } from '../hooks/useAuth'
 import { apiClient } from '../lib/apiClient'
-import { motion } from 'framer-motion'
 import {
   ChartBarIcon,
   CurrencyDollarIcon,
@@ -75,24 +74,16 @@ export default function Analytics() {
       </div>
 
       {/* Day of Week Patterns */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="card"
-      >
+      <div className="card">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Order Patterns by Day</h2>
           <CalendarIcon className="h-5 w-5 text-gray-400" />
         </div>
 
         <div className="space-y-4">
-          {analyticsData?.dayPatterns.map((pattern, index) => (
-            <motion.div
+          {analyticsData?.dayPatterns.map((pattern) => (
+            <div
               key={pattern.day_of_week}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
               className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
             >
               <div className="flex items-center space-x-4">
@@ -110,30 +101,22 @@ export default function Analytics() {
                 <p className="font-semibold text-gray-900">{formatCurrency(pattern.total_spent)}</p>
                 <p className="text-sm text-gray-500">Avg: {formatCurrency(pattern.avg_amount)}</p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Time of Day Patterns */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className="card"
-      >
+      <div className="card">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Order Patterns by Time</h2>
           <ClockIcon className="h-5 w-5 text-gray-400" />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {analyticsData?.timePatterns.map((pattern, index) => (
-            <motion.div
+          {analyticsData?.timePatterns.map((pattern) => (
+            <div
               key={pattern.time_of_day}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
               className="p-4 bg-gray-50 rounded-lg"
             >
               <div className="flex items-center justify-between mb-2">
@@ -144,30 +127,22 @@ export default function Analytics() {
                 <p className="text-sm text-gray-600">Total: {formatCurrency(pattern.total_spent)}</p>
                 <p className="text-sm text-gray-600">Avg: {formatCurrency(pattern.avg_amount)}</p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Favorite Restaurants */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.2 }}
-        className="card"
-      >
+      <div className="card">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Favorite Restaurants</h2>
           <ChartBarIcon className="h-5 w-5 text-gray-400" />
         </div>
 
         <div className="space-y-4">
-          {analyticsData?.favoriteCuisines.slice(0, 5).map((restaurant, index) => (
-            <motion.div
+          {analyticsData?.favoriteCuisines.slice(0, 5).map((restaurant) => (
+            <div
               key={restaurant.restaurant_name}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
               className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
             >
               <div className="flex items-center space-x-3">
@@ -185,30 +160,22 @@ export default function Analytics() {
                 <p className="font-semibold text-gray-900">{formatCurrency(restaurant.avg_amount)}</p>
                 <p className="text-sm text-gray-500">Average order</p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Monthly Trends */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.3 }}
-        className="card"
-      >
+      <div className="card">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Monthly Spending Trends</h2>
           <CurrencyDollarIcon className="h-5 w-5 text-gray-400" />
         </div>
 
         <div className="space-y-4">
-          {analyticsData?.monthlyTrends.slice(0, 6).map((trend, index) => (
-            <motion.div
+          {analyticsData?.monthlyTrends.slice(0, 6).map((trend) => (
+            <div
               key={trend.month}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
               className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
             >
               <div>
@@ -224,18 +191,13 @@ export default function Analytics() {
                 <p className="font-semibold text-gray-900">{formatCurrency(trend.total_spent)}</p>
                 <p className="text-sm text-gray-500">Avg: {formatCurrency(trend.avg_amount)}</p>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Insights Summary */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.4 }}
-        className="card"
-      >
+      <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Key Insights</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 bg-blue-50 rounded-lg">
@@ -260,7 +222,7 @@ export default function Analytics() {
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

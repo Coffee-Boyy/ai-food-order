@@ -1,7 +1,6 @@
 import { useQuery } from 'react-query'
 import { apiClient } from '../lib/apiClient'
-import { motion } from 'framer-motion'
-import { StarIcon, MapPinIcon, ClockIcon } from '@heroicons/react/24/solid'
+import { StarIcon } from '@heroicons/react/24/solid'
 import { StarIcon as StarOutlineIcon, BuildingStorefrontIcon } from '@heroicons/react/24/outline'
 import LoadingSpinner from './LoadingSpinner'
 
@@ -75,7 +74,7 @@ export default function RestaurantFeed() {
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Restaurants Available</h3>
           <p className="text-gray-500 mb-4">
-            {feedData.feed?.feedItems?.[0]?.subtitle || "Sorry, there's nothing available at your delivery address"}
+            {feedData?.feed?.feedItems?.[0]?.subtitle || "Sorry, there's nothing available at your delivery address"}
           </p>
           <button
             onClick={() => refetch()}
@@ -135,12 +134,9 @@ export default function RestaurantFeed() {
 
       {/* Restaurant Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {feedData.restaurants.map((restaurant, index) => (
-          <motion.div
+        {feedData.restaurants.map((restaurant) => (
+          <div
             key={restaurant.uuid}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
             className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
           >
             {/* Restaurant Image */}
@@ -201,7 +197,7 @@ export default function RestaurantFeed() {
                 View Menu
               </button>
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
     </div>

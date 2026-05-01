@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from 'react-query'
 import { useAuth } from '../hooks/useAuth'
 import { apiClient } from '../lib/apiClient'
-import { motion } from 'framer-motion'
 import { CogIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
@@ -56,12 +55,7 @@ export default function Settings() {
         <p className="text-gray-600">Manage your account and preferences</p>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="card"
-      >
+      <div className="card">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Preferences</h2>
           <CogIcon className="h-5 w-5 text-gray-400" />
@@ -90,14 +84,9 @@ export default function Settings() {
             </label>
           </div>
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className="card"
-      >
+      <div className="card">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-900">Security</h2>
           <ShieldCheckIcon className="h-5 w-5 text-gray-400" />
@@ -159,7 +148,7 @@ export default function Settings() {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }

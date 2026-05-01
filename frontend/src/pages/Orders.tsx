@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { apiClient } from '../lib/apiClient'
-import { motion } from 'framer-motion'
 import {
   ShoppingBagIcon,
   ArrowPathIcon,
@@ -699,27 +698,18 @@ export default function Orders() {
 
       {/* Auto-loading message */}
       {ordersLoading && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-blue-50 border border-blue-200 rounded-lg p-4"
-        >
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center space-x-2">
             <ArrowPathIcon className="h-4 w-4 text-blue-600 animate-spin" />
             <span className="text-blue-800 font-medium">Loading your orders from UberEats...</span>
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* Stats Cards */}
       {statsData && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="card"
-          >
+          <div className="card">
             <div className="flex items-center">
               <div className="p-2 rounded-lg bg-blue-500">
                 <ShoppingBagIcon className="h-6 w-6 text-white" />
@@ -729,14 +719,9 @@ export default function Orders() {
                 <p className="text-2xl font-bold text-gray-900">{statsData.total_orders}</p>
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-            className="card"
-          >
+          <div className="card">
             <div className="flex items-center">
               <div className="p-2 rounded-lg bg-green-500">
                 <CurrencyDollarIcon className="h-6 w-6 text-white" />
@@ -746,14 +731,9 @@ export default function Orders() {
                 <p className="text-2xl font-bold text-gray-900">{formatCurrency(statsData.total_spent)}</p>
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-            className="card"
-          >
+          <div className="card">
             <div className="flex items-center">
               <div className="p-2 rounded-lg bg-purple-500">
                 <CurrencyDollarIcon className="h-6 w-6 text-white" />
@@ -763,14 +743,9 @@ export default function Orders() {
                 <p className="text-2xl font-bold text-gray-900">{formatCurrency(statsData.avg_order_value)}</p>
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
-            className="card"
-          >
+          <div className="card">
             <div className="flex items-center">
               <div className="p-2 rounded-lg bg-yellow-500">
                 <ShoppingBagIcon className="h-6 w-6 text-white" />
@@ -780,31 +755,22 @@ export default function Orders() {
                 <p className="text-2xl font-bold text-gray-900">{statsData.unique_restaurants}</p>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       )}
 
       {/* Empty State */}
       {ordersData && ordersData.length === 0 && !ordersLoading && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="card text-center py-12"
-        >
+        <div className="card text-center py-12">
           <ShoppingBagIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
           <p className="text-gray-600 mb-4">You don't have any orders in your history yet.</p>
-        </motion.div>
+        </div>
       )}
 
       {/* Fetched Orders from UberEats */}
       {ordersData && ordersData.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="card border-2 border-blue-200 bg-blue-50"
-        >
+        <div className="card border-2 border-blue-200 bg-blue-50">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-2">
               <EyeIcon className="h-5 w-5 text-blue-600" />
@@ -817,11 +783,8 @@ export default function Orders() {
 
           <div className="space-y-4">
             {ordersData.map((order, index) => (
-              <motion.div
+              <div
                 key={order.uuid}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
                 className="bg-white rounded-lg border border-blue-200"
               >
                 <div className="flex items-center justify-between p-4">
@@ -865,10 +828,10 @@ export default function Orders() {
                       <OrderLineItems order={order} />
                     </div>
                   )}
-              </motion.div>
+              </div>
             ))}
           </div>
-        </motion.div>
+        </div>
       )}
 
 

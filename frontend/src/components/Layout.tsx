@@ -9,7 +9,6 @@ import {
   UserIcon,
   BuildingStorefrontIcon
 } from '@heroicons/react/24/outline'
-import { motion } from 'framer-motion'
 
 interface LayoutProps {
   children: ReactNode
@@ -95,13 +94,7 @@ export default function Layout({ children }: LayoutProps) {
       <div className="pl-64">
         <main className="py-6">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              {children}
-            </motion.div>
+            {children}
           </div>
         </main>
       </div>

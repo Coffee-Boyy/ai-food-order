@@ -2,7 +2,6 @@ import { useQuery } from 'react-query'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { apiClient } from '../lib/apiClient'
-import { motion } from 'framer-motion'
 import {
   ShoppingBagIcon,
   ChartBarIcon,
@@ -108,12 +107,9 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <motion.div
+        {stats.map((stat) => (
+          <div
             key={stat.name}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: index * 0.1 }}
             className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
           >
             <div className="flex items-center">
@@ -125,19 +121,14 @@ export default function Dashboard() {
                 <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
               </div>
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Orders */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3, delay: 0.4 }}
-          className="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
-        >
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h2 className="min-w-0 flex-1 text-lg font-semibold text-gray-900">
               Recent Orders
@@ -173,15 +164,10 @@ export default function Dashboard() {
               <p className="text-gray-500 text-center py-3">No recent orders</p>
             )}
           </div>
-        </motion.div>
+        </div>
 
         {/* Recent Predictions */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3, delay: 0.5 }}
-          className="bg-white rounded-xl shadow-sm border border-gray-200 p-4"
-        >
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h2 className="min-w-0 flex-1 text-lg font-semibold text-gray-900">
               Recent Predictions
@@ -218,18 +204,13 @@ export default function Dashboard() {
               <p className="text-gray-500 text-center py-3">No recent predictions</p>
             )}
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Restaurant Feed */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.6 }}
-        className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
-      >
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <RestaurantFeed />
-      </motion.div>
+      </div>
     </div>
   )
 }
