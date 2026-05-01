@@ -1,16 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
+import { Dialog, Transition } from '@headlessui/react'
 import { apiClient } from '../lib/apiClient'
 import {
   ShoppingBagIcon,
   ArrowPathIcon,
   CurrencyDollarIcon,
-  EyeIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
+  XMarkIcon,
   MapPinIcon,
   PhoneIcon,
-  StarIcon
+  StarIcon,
+  MagnifyingGlassIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
+  ChevronUpDownIcon
 } from '@heroicons/react/24/outline'
 import LoadingSpinner from '../components/LoadingSpinner'
 import toast from 'react-hot-toast'
@@ -200,8 +203,94 @@ interface OrderStats {
 }
 
 
+function resolveStoreForDetails(order: UberEatsOrder | Order) {
+  const o = order as UberEatsOrder & Order
+  return o.storeInfo ?? o.restaurant_details ?? o.baseEaterOrder?.storeInfo
+}
+
+function resolveFareForBreakdown(order: UberEatsOrder | Order) {
+  const o = order as UberEatsOrder & Order
+  return o.fareInfo ?? o.fare_info ?? o.baseEaterOrder?.fareInfo
+}
+
+function getOrderTime(order: UberEatsOrder | Order) {
+  if ('order_time' in order) {
+    return order.order_time
+  }
+  const uberOrder = order as UberEatsOrder
+  const orderData = uberOrder.baseEaterOrder || uberOrder
+  if ('completedAt' in orderData) {
+    return orderData.completedAt || orderData.created_at || ''
+  }
+  return orderData.created_at || uberOrder.created_at || ''
+}
+
+function getOrderItemsSummary(order: UberEatsOrder | Order) {
+  if ('items' in order && order.items) {
+    if (Array.isArray(order.items)) {
+      return order.items.map((item: OrderItem) => item.title || item.name).join(', ')
+    }
+    return 'Items available'
+  }
+  const uberOrder = order as UberEatsOrder
+  const orderData = uberOrder.baseEaterOrder || uberOrder
+  if ('shoppingCart' in orderData && orderData.shoppingCart && orderData.shoppingCart.items) {
+    return orderData.shoppingCart.items.map((item) => item.title).join(', ')
+  }
+  if (uberOrder.items) {
+    return uberOrder.items.map((item: OrderItem) => item.title || item.name).join(', ')
+  }
+  return 'No items available'
+}
+
+function getOrderTotalCents(order: UberEatsOrder) {
+  const fare = order.fareInfo ?? order.baseEaterOrder?.fareInfo
+  return (fare?.totalPrice || 0) / 100.0
+}
+
+function getDisplayOrderTotal(order: UberEatsOrder | Order) {
+  if ('total_amount' in order && order.total_amount != null) {
+    return typeof order.total_amount === 'string'
+      ? parseFloat(order.total_amount)
+      : order.total_amount
+  }
+  return getOrderTotalCents(order as UberEatsOrder)
+}
+
+function getRestaurantName(order: UberEatsOrder | Order) {
+  if ('restaurant_name' in order) {
+    return order.restaurant_name
+  }
+  const uberOrder = order as UberEatsOrder
+  if (uberOrder.storeInfo?.title) {
+    return uberOrder.storeInfo.title
+  }
+  const orderData = uberOrder.baseEaterOrder || uberOrder
+  if (orderData.storeInfo?.title) {
+    return orderData.storeInfo.title
+  }
+  if (uberOrder.restaurant) {
+    return uberOrder.restaurant.name
+  }
+  return 'Unknown Restaurant'
+}
+
+function getOrderRowKey(order: UberEatsOrder | Order, index: number) {
+  const u = (order as UberEatsOrder).uuid
+  if (u) return String(u)
+  if ('id' in order && order.id) return String(order.id)
+  return `order-${index}`
+}
+
+type OrdersTableSortField = 'restaurant' | 'date' | 'total'
+
 export default function Orders() {
-  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
+  const [detailOrder, setDetailOrder] = useState<UberEatsOrder | Order | null>(null)
+  const [ordersFilter, setOrdersFilter] = useState('')
+  const [sortField, setSortField] = useState<OrdersTableSortField>('date')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [ordersPage, setOrdersPage] = useState(1)
+  const [ordersPageSize, setOrdersPageSize] = useState(10)
   const [syncProgress, setSyncProgress] = useState<{
     page: number
     cumulative: number
@@ -336,96 +425,94 @@ export default function Orders() {
     })
   }
 
-  const getOrderTime = (order: UberEatsOrder | Order) => {
-    // If it's a processed order from database
-    if ('order_time' in order) {
-      return order.order_time
+  const handleOrdersSort = (field: OrdersTableSortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDir(field === 'restaurant' ? 'asc' : 'desc')
     }
-    
-    // If it's a raw UberEats order
-    const uberOrder = order as UberEatsOrder
-    const orderData = uberOrder.baseEaterOrder || uberOrder
-    if ('completedAt' in orderData) {
-      return orderData.completedAt || orderData.created_at || ''
-    }
-    return orderData.created_at || uberOrder.created_at || ''
   }
 
-  const getOrderItems = (order: UberEatsOrder | Order) => {
-    // If it's a processed order from database
-    if ('items' in order && order.items) {
-      if (Array.isArray(order.items)) {
-        return order.items.map((item: OrderItem) => item.title || item.name).join(', ')
-      }
-      return 'Items available'
-    }
-    
-    // If it's a raw UberEats order
-    const uberOrder = order as UberEatsOrder
-    const orderData = uberOrder.baseEaterOrder || uberOrder
-    if ('shoppingCart' in orderData && orderData.shoppingCart && orderData.shoppingCart.items) {
-      return orderData.shoppingCart.items.map(item => item.title).join(', ')
-    } else if (uberOrder.items) {
-      return uberOrder.items.map((item: OrderItem) => item.title || item.name).join(', ')
-    }
-    return 'No items available'
-  }
-
-  const getOrderTotal = (order: UberEatsOrder) => {
-    return (order.fareInfo?.totalPrice || 0) / 100.0
-  }
-
-  const getRestaurantName = (order: UberEatsOrder | Order) => {
-    // If it's a processed order from database
-    if ('restaurant_name' in order) {
-      return order.restaurant_name
-    }
-    
-    // If it's a raw UberEats order
-    const uberOrder = order as UberEatsOrder
-    
-    console.log('Getting restaurant name for order:', uberOrder.uuid)
-    console.log('Root storeInfo:', uberOrder.storeInfo)
-    console.log('BaseEaterOrder storeInfo:', uberOrder.baseEaterOrder?.storeInfo)
-    
-    // Check for storeInfo at root level first (according to schema)
-    if (uberOrder.storeInfo && uberOrder.storeInfo.title) {
-      console.log('Using root storeInfo.title:', uberOrder.storeInfo.title)
-      return uberOrder.storeInfo.title
-    }
-    
-    // Fallback to baseEaterOrder data
-    const orderData = uberOrder.baseEaterOrder || uberOrder
-    if (orderData.storeInfo && orderData.storeInfo.title) {
-      console.log('Using baseEaterOrder storeInfo.title:', orderData.storeInfo.title)
-      return orderData.storeInfo.title
-    }
-    
-    // Fallback to old format
-    if (uberOrder.restaurant) {
-      console.log('Using restaurant.name:', uberOrder.restaurant.name)
-      return uberOrder.restaurant.name
-    }
-    
-    console.log('No restaurant name found, using default')
-    return 'Unknown Restaurant'
-  }
-
-  const toggleOrderExpansion = (orderId: string) => {
-    setExpandedOrders(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(orderId)) {
-        newSet.delete(orderId)
-      } else {
-        newSet.add(orderId)
-      }
-      return newSet
+  const filteredSortedOrders = useMemo(() => {
+    if (!ordersData?.length) return []
+    const q = ordersFilter.trim().toLowerCase()
+    const rows = ordersData.filter((order) => {
+      if (!q) return true
+      const name = getRestaurantName(order).toLowerCase()
+      const items = getOrderItemsSummary(order).toLowerCase()
+      const id = String(
+        (order as UberEatsOrder).uuid ?? ('id' in order && order.id ? order.id : '')
+      ).toLowerCase()
+      return name.includes(q) || items.includes(q) || id.includes(q)
     })
-  }
+    return [...rows].sort((a, b) => {
+      let cmp = 0
+      if (sortField === 'restaurant') {
+        cmp = getRestaurantName(a).localeCompare(getRestaurantName(b), undefined, {
+          sensitivity: 'base'
+        })
+      } else if (sortField === 'date') {
+        const ta = new Date(getOrderTime(a)).getTime()
+        const tb = new Date(getOrderTime(b)).getTime()
+        cmp = (Number.isNaN(ta) ? 0 : ta) - (Number.isNaN(tb) ? 0 : tb)
+      } else {
+        cmp = getDisplayOrderTotal(a) - getDisplayOrderTotal(b)
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [ordersData, ordersFilter, sortField, sortDir])
 
-  const isOrderExpanded = (orderId: string) => {
-    return expandedOrders.has(orderId)
-  }
+  useEffect(() => {
+    setOrdersPage(1)
+  }, [ordersFilter, sortField, sortDir, ordersPageSize])
+
+  const ordersTotalPages = Math.max(1, Math.ceil(filteredSortedOrders.length / ordersPageSize))
+
+  useEffect(() => {
+    if (ordersPage > ordersTotalPages) {
+      setOrdersPage(ordersTotalPages)
+    }
+  }, [ordersPage, ordersTotalPages])
+
+  const paginatedOrders = useMemo(() => {
+    const start = (ordersPage - 1) * ordersPageSize
+    return filteredSortedOrders.slice(start, start + ordersPageSize)
+  }, [filteredSortedOrders, ordersPage, ordersPageSize])
+
+  const ordersRangeStart =
+    filteredSortedOrders.length === 0 ? 0 : (ordersPage - 1) * ordersPageSize + 1
+  const ordersRangeEnd = Math.min(ordersPage * ordersPageSize, filteredSortedOrders.length)
+
+  const SortHeaderButton = ({
+    field,
+    label,
+    className = ''
+  }: {
+    field: OrdersTableSortField
+    label: string
+    className?: string
+  }) => (
+    <button
+      type="button"
+      onClick={() => handleOrdersSort(field)}
+      className={`group inline-flex items-center gap-1 font-medium text-gray-700 hover:text-gray-900 ${className}`}
+    >
+      <span>{label}</span>
+      {sortField === field ? (
+        sortDir === 'asc' ? (
+          <ChevronUpIcon className="h-4 w-4 shrink-0 text-primary-600" aria-hidden />
+        ) : (
+          <ChevronDownIcon className="h-4 w-4 shrink-0 text-primary-600" aria-hidden />
+        )
+      ) : (
+        <ChevronUpDownIcon
+          className="h-4 w-4 shrink-0 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100"
+          aria-hidden
+        />
+      )}
+    </button>
+  )
 
   const FareBreakdown = ({ fareInfo }: { fareInfo: Order['fare_info'] }) => {
     if (!fareInfo || !fareInfo.checkoutInfo) {
@@ -770,71 +857,231 @@ export default function Orders() {
 
       {/* Fetched Orders from UberEats */}
       {ordersData && ordersData.length > 0 && (
-        <div className="card border-2 border-blue-200 bg-blue-50">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-2">
-              <EyeIcon className="h-5 w-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-blue-900">Fetched Orders from UberEats</h2>
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                {ordersData.length} orders
-              </span>
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative min-w-[200px] flex-1 lg:max-w-md">
+              <MagnifyingGlassIcon
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                aria-hidden
+              />
+              <input
+                type="search"
+                value={ordersFilter}
+                onChange={(e) => setOrdersFilter(e.target.value)}
+                placeholder="Filter by restaurant, items, or order ID…"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                aria-label="Filter orders"
+              />
             </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="whitespace-nowrap">Rows per page</span>
+              <select
+                value={ordersPageSize}
+                onChange={(e) => setOrdersPageSize(Number(e.target.value))}
+                className="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              >
+                {[10, 25, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          <div className="space-y-4">
-            {ordersData.map((order, index) => (
-              <div
-                key={order.uuid}
-                className="bg-white rounded-lg border border-blue-200"
-              >
-                <div className="flex items-center justify-between p-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                        <ShoppingBagIcon className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-gray-900">{getRestaurantName(order)}</h3>
-                        <p className="text-sm text-gray-500">{getOrderItems(order)}</p>
-                      </div>
-                    </div>
-                  </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">{formatCurrency(getOrderTotal(order))}</p>
-                        <p className="text-sm text-gray-500">{formatDate(getOrderTime(order))}</p>
-                      </div>
-                      
-                      <div className="flex space-x-1">
-                        <button
-                          onClick={() => toggleOrderExpansion('fetched-' + (order.uuid || index))}
-                          className="p-1 rounded-full hover:bg-blue-100 transition-colors"
-                          title="View order details"
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            {filteredSortedOrders.length === 0 ? (
+              <p className="p-8 text-center text-gray-500">
+                No orders match your filter. Try a different search.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600"
+                      >
+                        <SortHeaderButton field="restaurant" label="Restaurant" className="justify-start" />
+                      </th>
+                      <th
+                        scope="col"
+                        className="hidden min-w-[12rem] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 md:table-cell"
+                      >
+                        Items
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600"
+                      >
+                        <span className="inline-flex w-full justify-end">
+                          <SortHeaderButton field="total" label="Total" className="justify-end" />
+                        </span>
+                      </th>
+                      <th
+                        scope="col"
+                        className="hidden px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 sm:table-cell"
+                      >
+                        <span className="inline-flex w-full justify-end">
+                          <SortHeaderButton field="date" label="Date" className="justify-end" />
+                        </span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {paginatedOrders.map((order, rowIdx) => {
+                      const absIdx = (ordersPage - 1) * ordersPageSize + rowIdx
+                      return (
+                        <tr
+                          key={getOrderRowKey(order, absIdx)}
+                          className="cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50"
+                          onClick={() => setDetailOrder(order)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              setDetailOrder(order)
+                            }
+                          }}
+                          tabIndex={0}
+                          role="button"
+                          aria-label={`View details for order from ${getRestaurantName(order)}`}
                         >
-                          {isOrderExpanded('fetched-' + (order.uuid || index)) ? (
-                            <ChevronUpIcon className="h-4 w-4 text-blue-600" />
-                          ) : (
-                            <ChevronDownIcon className="h-4 w-4 text-blue-600" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {isOrderExpanded('fetched-' + (order.uuid || index)) && (
-                    <div className="space-y-4">
-                      <RestaurantDetails restaurantDetails={order.storeInfo} />
-                      <FareBreakdown fareInfo={order.fareInfo} />
-                      <OrderLineItems order={order} />
-                    </div>
-                  )}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                                <ShoppingBagIcon className="h-4 w-4 text-gray-600" aria-hidden />
+                              </div>
+                              <span className="font-medium text-gray-900">
+                                {getRestaurantName(order)}
+                              </span>
+                            </div>
+                            <p className="mt-1 max-w-[220px] truncate text-sm text-gray-500 md:hidden">
+                              {getOrderItemsSummary(order)}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-400 sm:hidden">
+                              {formatDate(getOrderTime(order))}
+                            </p>
+                          </td>
+                          <td className="hidden max-w-md px-4 py-3 text-sm text-gray-600 md:table-cell">
+                            <span className="line-clamp-2" title={getOrderItemsSummary(order)}>
+                              {getOrderItemsSummary(order)}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                            {formatCurrency(getDisplayOrderTotal(order))}
+                          </td>
+                          <td className="hidden whitespace-nowrap px-4 py-3 text-right text-sm text-gray-600 sm:table-cell">
+                            {formatDate(getOrderTime(order))}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
-            ))}
+            )}
           </div>
+
+          {filteredSortedOrders.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-gray-600">
+                Showing <span className="font-medium text-gray-900">{ordersRangeStart}</span>–
+                <span className="font-medium text-gray-900">{ordersRangeEnd}</span> of{' '}
+                <span className="font-medium text-gray-900">{filteredSortedOrders.length}</span>
+                {ordersFilter.trim() ? (
+                  <span className="text-gray-500"> (of {ordersData.length} loaded)</span>
+                ) : null}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
+                  disabled={ordersPage <= 1}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="px-2 text-sm text-gray-600">
+                  Page {ordersPage} of {ordersTotalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setOrdersPage((p) => Math.min(ordersTotalPages, p + 1))}
+                  disabled={ordersPage >= ordersTotalPages}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
+      <Transition.Root show={detailOrder !== null} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setDetailOrder(null)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-500/40 backdrop-blur-[1px]" aria-hidden="true" />
+          </Transition.Child>
 
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-200"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-150"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-black/5 transition-all">
+                  {detailOrder ? (
+                    <>
+                      <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-gray-200 bg-white px-6 py-4">
+                        <div className="min-w-0">
+                          <Dialog.Title className="text-lg font-semibold text-gray-900">
+                            {getRestaurantName(detailOrder)}
+                          </Dialog.Title>
+                          <p className="mt-1 text-sm text-gray-500">
+                            {formatDate(getOrderTime(detailOrder))}
+                            <span className="text-gray-400"> · </span>
+                            {formatCurrency(getDisplayOrderTotal(detailOrder))}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                          onClick={() => setDetailOrder(null)}
+                          aria-label="Close order details"
+                        >
+                          <XMarkIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                      <div className="max-h-[min(70vh,32rem)] space-y-4 overflow-y-auto px-6 py-4">
+                        <RestaurantDetails
+                          restaurantDetails={resolveStoreForDetails(detailOrder)}
+                        />
+                        <FareBreakdown fareInfo={resolveFareForBreakdown(detailOrder)} />
+                        <OrderLineItems order={detailOrder} />
+                      </div>
+                    </>
+                  ) : null}
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition.Root>
     </div>
   )
 }

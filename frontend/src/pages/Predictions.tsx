@@ -7,8 +7,8 @@ import {
   ClockIcon,
   CalendarIcon,
   SparklesIcon,
-  CheckCircleIcon,
-  XCircleIcon
+  HandThumbUpIcon,
+  HandThumbDownIcon
 } from '@heroicons/react/24/outline'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { MODEL_STATUS_MESSAGES } from '../lib/predictionModelStatus'
@@ -112,6 +112,7 @@ export default function Predictions() {
         toast.success('Feedback submitted!')
         queryClient.invalidateQueries(['predictions'])
         queryClient.invalidateQueries(['predictionAccuracy'])
+        queryClient.invalidateQueries(['dashboard'])
       },
       onError: () => {
         toast.error('Failed to submit feedback')
@@ -262,21 +263,9 @@ export default function Predictions() {
                       {dayNames[prediction.day_of_week]} • {prediction.time_of_day}
                     </p>
                   </div>
-                  <div className="text-right space-y-1">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
-                      {(prediction.confidence_score * 100).toFixed(0)}% confidence
-                    </span>
-                    {prediction.source === 'apple-foundation-models' && (
-                      <div>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                          <svg className="h-3 w-3" viewBox="0 0 14 14" fill="currentColor" aria-hidden="true">
-                            <path d="M7 0a7 7 0 1 0 0 14A7 7 0 0 0 7 0zm.75 10.5h-1.5v-4h1.5v4zm0-5.5h-1.5V3.5h1.5V5z"/>
-                          </svg>
-                          On-device
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  <span className="inline-flex items-center rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-medium text-primary-800">
+                    {(prediction.confidence_score * 100).toFixed(0)}% confidence
+                  </span>
                 </div>
 
                 <div className="mb-2">
@@ -298,36 +287,42 @@ export default function Predictions() {
 
                   {/* Feedback buttons */}
                   {prediction.is_correct === undefined && (
-                    <div className="flex space-x-2">
+                    <div className="flex items-center gap-2">
                       <button
+                        type="button"
                         onClick={() => handleFeedback(prediction.id, true)}
-                        className="flex items-center space-x-1 text-green-600 hover:text-green-700 text-sm"
+                        className="rounded-lg border border-gray-200 p-2 text-green-600 transition-colors hover:border-green-300 hover:bg-green-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"
+                        aria-label="Mark prediction as correct"
+                        title="Correct"
                       >
-                        <CheckCircleIcon className="h-4 w-4" />
-                        <span>Correct</span>
+                        <HandThumbUpIcon className="h-5 w-5" aria-hidden />
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleFeedback(prediction.id, false)}
-                        className="flex items-center space-x-1 text-red-600 hover:text-red-700 text-sm"
+                        className="rounded-lg border border-gray-200 p-2 text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+                        aria-label="Mark prediction as incorrect"
+                        title="Incorrect"
                       >
-                        <XCircleIcon className="h-4 w-4" />
-                        <span>Incorrect</span>
+                        <HandThumbDownIcon className="h-5 w-5" aria-hidden />
                       </button>
                     </div>
                   )}
 
                   {/* Feedback status */}
                   {prediction.is_correct !== undefined && (
-                    <div className="flex items-center space-x-1">
+                    <div
+                      className={`flex items-center gap-1.5 ${prediction.is_correct ? 'text-green-600' : 'text-red-600'}`}
+                    >
                       {prediction.is_correct ? (
                         <>
-                          <CheckCircleIcon className="h-4 w-4 text-green-600" />
-                          <span className="text-sm text-green-600">Marked as correct</span>
+                          <HandThumbUpIcon className="h-5 w-5 shrink-0" aria-hidden />
+                          <span className="text-sm">Marked as liked</span>
                         </>
                       ) : (
                         <>
-                          <XCircleIcon className="h-4 w-4 text-red-600" />
-                          <span className="text-sm text-red-600">Marked as incorrect</span>
+                          <HandThumbDownIcon className="h-5 w-5 shrink-0" aria-hidden />
+                          <span className="text-sm">Marked as not liked</span>
                         </>
                       )}
                     </div>

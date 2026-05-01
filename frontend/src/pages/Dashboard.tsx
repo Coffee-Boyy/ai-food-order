@@ -1,4 +1,4 @@
-import { useQuery } from 'react-query'
+import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { apiClient } from '../lib/apiClient'
@@ -6,10 +6,13 @@ import {
   ShoppingBagIcon,
   ChartBarIcon,
   CurrencyDollarIcon,
-  SparklesIcon
+  SparklesIcon,
+  HandThumbUpIcon,
+  HandThumbDownIcon
 } from '@heroicons/react/24/outline'
 import LoadingSpinner from '../components/LoadingSpinner'
 import RestaurantFeed from '../components/RestaurantFeed'
+import toast from 'react-hot-toast'
 
 const formatInteger = (n: number) => n.toLocaleString('en-US')
 
@@ -27,10 +30,12 @@ interface DashboardData {
     time_of_day: string
   }>
   recentPredictions: Array<{
+    id: string
     predicted_restaurant: string
     predicted_items: string[]
     confidence_score: number
     created_at: string
+    is_correct?: boolean
   }>
   stats: {
     total_orders: number
@@ -42,6 +47,31 @@ interface DashboardData {
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  const feedbackMutation = useMutation(
+    async ({ predictionId, isCorrect }: { predictionId: string; isCorrect: boolean }) => {
+      await apiClient.post('/api/predictions/feedback', {
+        predictionId,
+        isCorrect
+      })
+    },
+    {
+      onSuccess: () => {
+        toast.success('Feedback submitted!')
+        queryClient.invalidateQueries(['predictions'])
+        queryClient.invalidateQueries(['predictionAccuracy'])
+        queryClient.invalidateQueries(['dashboard'])
+      },
+      onError: () => {
+        toast.error('Failed to submit feedback')
+      }
+    }
+  )
+
+  const handlePredictionFeedback = (predictionId: string, isCorrect: boolean) => {
+    feedbackMutation.mutate({ predictionId, isCorrect })
+  }
 
   const { data: dashboardData, isLoading, error } = useQuery<DashboardData>(
     ['dashboard'],
@@ -184,10 +214,15 @@ export default function Dashboard() {
           <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
             {dashboardData?.recentPredictions.length ? (
               dashboardData.recentPredictions.map((prediction, index) => (
-                <div key={index} className="p-2 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-medium text-gray-900">{prediction.predicted_restaurant}</p>
-                    <span className="text-sm text-gray-500">
+                <div
+                  key={prediction.id || index}
+                  className="rounded-lg bg-gray-50 p-2"
+                >
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <p className="min-w-0 truncate font-medium text-gray-900">
+                      {prediction.predicted_restaurant}
+                    </p>
+                    <span className="shrink-0 text-sm text-gray-500">
                       {(prediction.confidence_score * 100).toFixed(0)}%
                     </span>
                   </div>
@@ -195,9 +230,52 @@ export default function Dashboard() {
                     {prediction.predicted_items.slice(0, 2).join(', ')}
                     {prediction.predicted_items.length > 2 && '...'}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(prediction.created_at).toLocaleDateString()}
-                  </p>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs text-gray-500">
+                      {new Date(prediction.created_at).toLocaleDateString()}
+                    </p>
+                    {prediction.id && prediction.is_correct === undefined && (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handlePredictionFeedback(prediction.id, true)}
+                          disabled={feedbackMutation.isLoading}
+                          className="rounded-md border border-gray-200 p-1.5 text-green-600 transition-colors hover:border-green-300 hover:bg-green-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1 disabled:opacity-50"
+                          aria-label="Mark prediction as correct"
+                          title="Correct"
+                        >
+                          <HandThumbUpIcon className="h-4 w-4" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePredictionFeedback(prediction.id, false)}
+                          disabled={feedbackMutation.isLoading}
+                          className="rounded-md border border-gray-200 p-1.5 text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 disabled:opacity-50"
+                          aria-label="Mark prediction as incorrect"
+                          title="Incorrect"
+                        >
+                          <HandThumbDownIcon className="h-4 w-4" aria-hidden />
+                        </button>
+                      </div>
+                    )}
+                    {prediction.is_correct !== undefined && (
+                      <div
+                        className={`flex shrink-0 items-center gap-1 ${prediction.is_correct ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        {prediction.is_correct ? (
+                          <>
+                            <HandThumbUpIcon className="h-4 w-4 shrink-0" aria-hidden />
+                            <span className="text-xs">Marked as liked</span>
+                          </>
+                        ) : (
+                          <>
+                            <HandThumbDownIcon className="h-4 w-4 shrink-0" aria-hidden />
+                            <span className="text-xs">Marked as not liked</span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (
