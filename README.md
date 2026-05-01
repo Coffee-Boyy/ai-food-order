@@ -85,6 +85,8 @@ The app now supports importing an UberEats web session directly:
 - Go to `Settings` in the app
 - Paste a valid UberEats cookie header containing `sid` (and optionally `csrf_token`)
 - Click `Connect Session`, then use `Sync from UberEats` on the `Orders` page
+- The UberEats session (`sid` / `csrf_token`) is saved under the app’s user data folder (e.g. `Application Support/ai-food-order` on macOS) and restored when you reopen the desktop app. The main process sets the app name from `package.json` so that path stays stable in development. Use **Disconnect** in Settings to clear it.
+- Full history sync loads every page from Uber (`getPastOrdersV1`), passing `lastWorkflowUUID` from each response until there are no more orders; the Orders screen shows a progress bar while pages are fetched.
 
 For Electron, this same flow can be automated by capturing cookies from an in-app Uber login window and POSTing them to `/api/uber/session/import`.
 

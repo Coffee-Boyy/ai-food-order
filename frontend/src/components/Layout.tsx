@@ -71,14 +71,20 @@ export default function Layout({ children }: LayoutProps) {
           {/* User section */}
           <div className="border-t border-gray-200 p-4">
             <div className="flex items-center space-x-3">
-              <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                <UserIcon className="h-4 w-4 text-primary-600" />
+              <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden shrink-0">
+                {user?.pictureUrl ? (
+                  <img src={user.pictureUrl} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <UserIcon className="h-4 w-4 text-primary-600" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-900 truncate">
-                  {user?.firstName} {user?.lastName}
+                  {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Your account'}
                 </p>
-                <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                {user?.email?.trim() ? (
+                  <p className="text-xs text-gray-500 truncate">{user.email.trim()}</p>
+                ) : null}
               </div>
             </div>
           </div>

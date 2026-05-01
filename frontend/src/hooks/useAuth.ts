@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useQuery } from 'react-query'
 import { apiClient } from '../lib/apiClient'
 
@@ -7,58 +7,60 @@ interface User {
   email: string
   firstName: string
   lastName: string
+  pictureUrl?: string | null
+}
+
+export interface UberSessionInfo {
+  connected: boolean
+  lastImportedAt: string | null
+  lastSyncAt: string | null
+}
+
+type SessionApiResponse = {
+  user: User
+  sessionToken: string | null
+  uberConnected: boolean
+  uberSession: UberSessionInfo
+}
+
+function uberFromSessionPayload(data: SessionApiResponse | undefined): UberSessionInfo | null {
+  if (!data) return null
+  if (data.uberSession) return data.uberSession
+  return {
+    connected: Boolean(data.uberConnected),
+    lastImportedAt: null,
+    lastSyncAt: null
+  }
 }
 
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [sessionToken, setSessionToken] = useState<string | null>(null)
-
-  // Get the first available session
-  const { error } = useQuery(
+  const { data: sessionData, isLoading, error, isError } = useQuery(
     ['session'],
-    async () => {
-      return apiClient.get<{
-        user: User
-        sessionToken: string | null
-      }>('/api/auth/session')
-    },
+    async () => apiClient.get<SessionApiResponse>('/api/auth/session'),
     {
       retry: 3,
-      retryDelay: 1000,
-      onSuccess: (data) => {
-        setUser(data.user)
-        setSessionToken(data.sessionToken)
-        if (data.sessionToken) {
-          localStorage.setItem('sessionToken', data.sessionToken)
-        } else {
-          localStorage.removeItem('sessionToken')
-        }
-        setLoading(false)
-      },
-      onError: (error) => {
-        console.error('Failed to get session:', error)
-        setUser(null)
-        setSessionToken(null)
-        localStorage.removeItem('sessionToken')
-        setLoading(false)
-      }
+      retryDelay: 1000
     }
   )
 
-  // Verify session on mount if we have a stored token
+  const user = sessionData?.user ?? null
+  const sessionToken = sessionData?.sessionToken ?? null
+  const uberSession = uberFromSessionPayload(sessionData)
+
   useEffect(() => {
-    const storedToken = localStorage.getItem('sessionToken')
-    if (storedToken && !sessionToken) {
-      setSessionToken(storedToken)
+    if (sessionToken) {
+      localStorage.setItem('sessionToken', sessionToken)
+    } else {
+      localStorage.removeItem('sessionToken')
     }
   }, [sessionToken])
 
   return {
     user,
-    loading,
+    loading: isLoading,
     sessionToken,
+    uberSession,
     isAuthenticated: !!user,
-    error
+    error: isError ? error : undefined
   }
 }

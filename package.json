@@ -8,9 +8,14 @@
     "frontend:dev": "pnpm --dir frontend dev",
     "frontend:build": "pnpm --dir frontend build",
     "electron:dev": "concurrently -k \"pnpm frontend:dev\" \"wait-on tcp:3005 && cross-env ELECTRON_START_URL=http://localhost:3005 electron .\"",
-    "electron:start": "electron ."
+    "electron:start": "electron .",
+    "postinstall": "electron-rebuild -f -w better-sqlite3"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1"
   },
   "devDependencies": {
+    "@electron/rebuild": "^3.7.1",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
     "electron": "^37.1.0",

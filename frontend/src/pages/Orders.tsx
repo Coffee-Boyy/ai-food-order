@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { apiClient } from '../lib/apiClient'
 import { motion } from 'framer-motion'
@@ -203,21 +203,66 @@ interface OrderStats {
 
 export default function Orders() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set())
+  const [syncProgress, setSyncProgress] = useState<{
+    page: number
+    cumulative: number
+    percent: number
+  } | null>(null)
   const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const unsubscribe = window.desktop?.onOrdersSyncProgress?.((payload) => {
+      if (payload.type === 'progress') {
+        setSyncProgress({
+          page: payload.page,
+          cumulative: payload.cumulativeOrders,
+          percent: payload.percent
+        })
+      } else if (payload.type === 'complete') {
+        setSyncProgress({
+          page: payload.pages ?? 0,
+          cumulative: payload.cumulativeOrders ?? 0,
+          percent: 100
+        })
+      } else if (payload.type === 'error') {
+        setSyncProgress(null)
+      }
+    })
+    return () => unsubscribe?.()
+  }, [])
 
   const syncOrdersMutation = useMutation(
     async () => {
-      return apiClient.post<{ syncedCount?: number }>('/api/orders/sync')
+      if (window.desktop?.syncOrdersFull) {
+        const res = await window.desktop.syncOrdersFull()
+        if (!res.ok) {
+          throw new Error(res.error?.message || 'Failed to sync orders')
+        }
+        return res.data
+      }
+      return apiClient.post<{ syncedCount?: number; pages?: number }>('/api/orders/sync')
     },
     {
+      onMutate: () => {
+        setSyncProgress({ page: 0, cumulative: 0, percent: 0 })
+      },
       onSuccess: (data) => {
-        toast.success(`Synced ${data.syncedCount ?? 0} orders from UberEats`)
+        const count = data?.syncedCount ?? 0
+        const pages = data?.pages
+        toast.success(
+          pages != null
+            ? `Synced ${count} orders from UberEats (${pages} page${pages === 1 ? '' : 's'})`
+            : `Synced ${count} orders from UberEats`
+        )
         queryClient.invalidateQueries(['orders'])
         queryClient.invalidateQueries(['orderStats'])
         queryClient.invalidateQueries(['dashboard'])
+        window.setTimeout(() => setSyncProgress(null), 900)
       },
-      onError: (error: any) => {
-        toast.error(error?.response?.data?.message || 'Failed to sync orders')
+      onError: (error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Failed to sync orders'
+        toast.error(message)
+        setSyncProgress(null)
       }
     }
   )
@@ -627,6 +672,30 @@ export default function Orders() {
           {syncOrdersMutation.isLoading ? 'Syncing...' : 'Sync from UberEats'}
         </button>
       </div>
+
+      {syncProgress !== null && (
+        <div className="rounded-lg border border-primary-200 bg-primary-50/80 p-4 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-primary-900">
+            <span className="font-medium">
+              {syncOrdersMutation.isLoading
+                ? 'Fetching full order history…'
+                : syncProgress.percent >= 100
+                  ? 'Sync complete'
+                  : 'Sync finished'}
+            </span>
+            <span className="text-primary-800">
+              {syncProgress.page > 0 ? `Page ${syncProgress.page}` : 'Starting…'}
+              {syncProgress.cumulative > 0 ? ` · ${syncProgress.cumulative} orders` : null}
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-primary-100">
+            <div
+              className="h-full rounded-full bg-primary-600 transition-[width] duration-300 ease-out"
+              style={{ width: `${syncProgress.percent}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Auto-loading message */}
       {ordersLoading && (

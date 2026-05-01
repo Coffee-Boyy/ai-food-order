@@ -18,6 +18,17 @@ const queryClient = new QueryClient({
 })
 
 async function bootstrap() {
+  window.desktop?.onOrdersBackgroundRefresh?.(() => {
+    queryClient.invalidateQueries(['orders'])
+    queryClient.invalidateQueries(['orderStats'])
+    queryClient.invalidateQueries(['dashboard'])
+    queryClient.invalidateQueries(['session'])
+  })
+
+  window.desktop?.onUberProfileUpdated?.(() => {
+    queryClient.invalidateQueries(['session'])
+  })
+
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
