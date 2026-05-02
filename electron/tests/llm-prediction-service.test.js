@@ -12,7 +12,7 @@ const path = require('path');
 
 // ─── Module under test ────────────────────────────────────────────────────────
 
-const { buildOrderSummary } = require(
+const { buildOrderSummary, ensureRevisionDiversity } = require(
   path.join(__dirname, '..', 'services', 'llm-prediction-service')
 );
 
@@ -79,6 +79,8 @@ test('returns required summary fields', () => {
   assert.ok(Array.isArray(summary.topRestaurantsBySlot), 'topRestaurantsBySlot missing');
   assert.ok(Array.isArray(summary.topRestaurantsOverall), 'topRestaurantsOverall missing');
   assert.ok(Array.isArray(summary.recentOrders), 'recentOrders missing');
+  assert.strictEqual(typeof summary.slotOrderCount, 'number', 'slotOrderCount not a number');
+  assert.strictEqual(typeof summary.usedOverallFallbackForSlot, 'boolean', 'usedOverallFallbackForSlot not a boolean');
   assert.strictEqual(typeof summary.totalOrders, 'number', 'totalOrders not a number');
   assert.strictEqual(typeof summary.avgSpend, 'number', 'avgSpend not a number');
   assert.strictEqual(typeof summary.dayName, 'string', 'dayName not a string');
@@ -97,6 +99,8 @@ test('topRestaurantsBySlot uses full pool when slot has fewer than 3 orders', ()
   const summary = buildOrderSummary(FRIDAY_DINNER_ORDERS, 3, 'lunch');
   // Should still have data (from full pool)
   assert.ok(summary.topRestaurantsBySlot.length > 0);
+  assert.strictEqual(summary.slotOrderCount, 1);
+  assert.strictEqual(summary.usedOverallFallbackForSlot, true);
 });
 
 test('topRestaurantsOverall includes orders from all slots', () => {
@@ -143,6 +147,46 @@ test('dayName is set correctly for Friday (index 5)', () => {
 test('timeLabel maps dinner to a human-readable label', () => {
   const summary = buildOrderSummary(FRIDAY_DINNER_ORDERS, 5, 'dinner');
   assert.ok(summary.timeLabel.toLowerCase().includes('dinner'));
+});
+
+test('ensureRevisionDiversity replaces repeated restaurant when an alternate exists', () => {
+  const summary = buildOrderSummary(FRIDAY_DINNER_ORDERS, 5, 'dinner');
+  const result = ensureRevisionDiversity(
+    {
+      ok: true,
+      recommendedRestaurant: 'Thai Palace',
+      recommendedItems: ['Pad Thai', 'Spring Rolls'],
+      confidenceScore: 0.9,
+      reasoning: 'Thai Palace is strongest.'
+    },
+    summary,
+    [
+      {
+        predicted_restaurant: 'Thai Palace',
+        predicted_items: ['Pad Thai', 'Spring Rolls']
+      }
+    ]
+  );
+
+  assert.strictEqual(result.recommendedRestaurant, 'Pizza Hub');
+  assert.deepStrictEqual(result.recommendedItems, ['Margherita', 'Garlic Bread']);
+  assert.ok(result.confidenceScore <= 0.65);
+});
+
+test('ensureRevisionDiversity keeps model result when it is already new', () => {
+  const summary = buildOrderSummary(FRIDAY_DINNER_ORDERS, 5, 'dinner');
+  const modelResult = {
+    ok: true,
+    recommendedRestaurant: 'Pizza Hub',
+    recommendedItems: ['Margherita', 'Garlic Bread'],
+    confidenceScore: 0.7,
+    reasoning: 'Pizza Hub is a good alternate.'
+  };
+
+  assert.strictEqual(
+    ensureRevisionDiversity(modelResult, summary, [{ predicted_restaurant: 'Thai Palace' }]),
+    modelResult
+  );
 });
 
 // ─── Results ──────────────────────────────────────────────────────────────────

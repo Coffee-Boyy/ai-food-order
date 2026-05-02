@@ -11,6 +11,9 @@ const fs = require('fs');
 
 // Timeout for the Swift helper process (ms).
 const HELPER_TIMEOUT_MS = 30_000;
+const MAX_RESTAURANTS_PER_SECTION = 5;
+const MAX_ITEMS_PER_RESTAURANT = 4;
+const MAX_RECENT_ORDERS = 6;
 
 // ─── Binary path resolution ───────────────────────────────────────────────────
 
@@ -85,6 +88,7 @@ function buildOrderSummary(orders, dayOfWeek, timeOfDay) {
     (o) => o.day_of_week === dayOfWeek && o.time_of_day === timeOfDay
   );
   const poolForSlot = slotOrders.length >= 3 ? slotOrders : orders;
+  const usedOverallFallbackForSlot = slotOrders.length < 3;
 
   const restaurantMap = new Map();
   for (const o of poolForSlot) {
@@ -100,14 +104,14 @@ function buildOrderSummary(orders, dayOfWeek, timeOfDay) {
 
   const topRestaurantsBySlot = [...restaurantMap.entries()]
     .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 8)
+    .slice(0, MAX_RESTAURANTS_PER_SECTION)
     .map(([restaurant, e]) => ({
       restaurant,
       count: e.count,
       avgSpend: e.count > 0 ? Math.round((e.totalSpend / e.count) * 100) / 100 : 0,
       commonItems: [...e.items.entries()]
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
+        .slice(0, MAX_ITEMS_PER_RESTAURANT)
         .map(([item]) => item)
     }));
 
@@ -126,19 +130,19 @@ function buildOrderSummary(orders, dayOfWeek, timeOfDay) {
 
   const topRestaurantsOverall = [...overallMap.entries()]
     .sort((a, b) => b[1].count - a[1].count)
-    .slice(0, 8)
+    .slice(0, MAX_RESTAURANTS_PER_SECTION)
     .map(([restaurant, e]) => ({
       restaurant,
       count: e.count,
       avgSpend: e.count > 0 ? Math.round((e.totalSpend / e.count) * 100) / 100 : 0,
       commonItems: [...e.items.entries()]
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
+        .slice(0, MAX_ITEMS_PER_RESTAURANT)
         .map(([item]) => item)
     }));
 
   // ── Recent orders (recency signal, no spend details beyond avg) ───────────
-  const recentOrders = orders.slice(0, 10).map((o) => ({
+  const recentOrders = orders.slice(0, MAX_RECENT_ORDERS).map((o) => ({
     restaurant: o.restaurant_name || 'Unknown',
     items: extractItems(o).slice(0, 4),
     date: new Date(o.order_time).toISOString().slice(0, 10),
@@ -152,10 +156,73 @@ function buildOrderSummary(orders, dayOfWeek, timeOfDay) {
     topRestaurantsBySlot,
     topRestaurantsOverall,
     recentOrders,
+    slotOrderCount: slotOrders.length,
+    usedOverallFallbackForSlot,
     totalOrders: orders.length,
     avgSpend,
     dayName: DAY_NAMES[dayOfWeek] || 'Unknown',
     timeLabel: TIME_LABELS[timeOfDay] || timeOfDay
+  };
+}
+
+function restaurantKey(name) {
+  return String(name || '').trim().toLowerCase();
+}
+
+function previousRestaurantSet(previousPredictions) {
+  if (!Array.isArray(previousPredictions)) return new Set();
+
+  return new Set(
+    previousPredictions
+      .map((p) => restaurantKey(p.predicted_restaurant))
+      .filter(Boolean)
+  );
+}
+
+function firstAlternateRestaurant(summary, blockedRestaurants) {
+  const seen = new Set();
+  const sections = [
+    summary.topRestaurantsBySlot || [],
+    summary.topRestaurantsOverall || []
+  ];
+
+  for (const section of sections) {
+    for (const restaurant of section) {
+      const key = restaurantKey(restaurant.restaurant);
+      if (!key || seen.has(key) || blockedRestaurants.has(key)) continue;
+
+      seen.add(key);
+      return restaurant;
+    }
+  }
+
+  return null;
+}
+
+function ensureRevisionDiversity(result, summary, previousPredictions) {
+  const blockedRestaurants = previousRestaurantSet(previousPredictions);
+  if (blockedRestaurants.size === 0) return result;
+  if (!blockedRestaurants.has(restaurantKey(result.recommendedRestaurant))) return result;
+
+  const alternate = firstAlternateRestaurant(summary, blockedRestaurants);
+  if (!alternate) return result;
+
+  const recommendedItems = (alternate.commonItems || []).slice(0, 4);
+  const confidenceScore = Math.min(
+    typeof result.confidenceScore === 'number' ? result.confidenceScore : 0.5,
+    summary.usedOverallFallbackForSlot ? 0.45 : 0.65
+  );
+
+  console.log(
+    `[FoodPredictor] replacing repeated revision "${result.recommendedRestaurant}" with "${alternate.restaurant}"`
+  );
+
+  return {
+    ...result,
+    recommendedRestaurant: alternate.restaurant,
+    recommendedItems: recommendedItems.length > 0 ? recommendedItems : result.recommendedItems,
+    confidenceScore,
+    reasoning: `${alternate.restaurant} is the strongest remaining candidate for this revision after excluding prior recommendations.`
   };
 }
 
@@ -274,7 +341,11 @@ async function generatePrediction(orders, dayOfWeek, timeOfDay, previousPredicti
       reasoning: p.reasoning || null
     }));
   }
-  const result = await invokeHelper(request);
+  const result = ensureRevisionDiversity(
+    await invokeHelper(request),
+    summary,
+    previousPredictions
+  );
 
   return {
     predicted_restaurant: result.recommendedRestaurant,
@@ -288,4 +359,9 @@ async function generatePrediction(orders, dayOfWeek, timeOfDay, previousPredicti
   };
 }
 
-module.exports = { generatePrediction, buildOrderSummary, helperBinaryPath };
+module.exports = {
+  generatePrediction,
+  buildOrderSummary,
+  ensureRevisionDiversity,
+  helperBinaryPath
+};

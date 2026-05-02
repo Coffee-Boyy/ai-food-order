@@ -1,14 +1,21 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from 'react-query'
 import { useAuth } from '../hooks/useAuth'
+import { ThemeMode, useTheme } from '../hooks/useTheme'
 import { apiClient } from '../lib/apiClient'
 import { CogIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
 export default function Settings() {
   const { uberSession } = useAuth()
+  const { mode, resolvedTheme, setMode } = useTheme()
   const queryClient = useQueryClient()
   const [cookieHeader, setCookieHeader] = useState('')
+  const themeOptions: Array<{ value: ThemeMode; label: string; description: string }> = [
+    { value: 'system', label: 'System', description: `Follow macOS (${resolvedTheme})` },
+    { value: 'light', label: 'Light', description: 'Always use light mode' },
+    { value: 'dark', label: 'Dark', description: 'Always use dark mode' }
+  ]
 
   const connectUberMutation = useMutation(
     async (rawCookie: string) => {
@@ -62,6 +69,33 @@ export default function Settings() {
         </div>
 
         <div className="space-y-4">
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <div className="mb-3">
+              <h3 className="font-medium text-gray-900">Appearance</h3>
+              <p className="text-sm text-gray-500">
+                Use your system preference by default, or choose a fixed theme.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {themeOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setMode(option.value)}
+                  className={`rounded-lg border px-3 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
+                    mode === option.value
+                      ? 'border-primary-500 bg-primary-50 text-primary-800'
+                      : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                  aria-pressed={mode === option.value}
+                >
+                  <span className="block text-sm font-medium">{option.label}</span>
+                  <span className="mt-0.5 block text-xs text-gray-500">{option.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
               <h3 className="font-medium text-gray-900">Email Notifications</h3>

@@ -1,13 +1,16 @@
 import { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useTheme } from '../hooks/useTheme'
 import {
   HomeIcon,
   ShoppingBagIcon,
   ChartBarIcon,
   CogIcon,
   UserIcon,
-  BuildingStorefrontIcon
+  BuildingStorefrontIcon,
+  MoonIcon,
+  SunIcon
 } from '@heroicons/react/24/outline'
 
 interface LayoutProps {
@@ -25,6 +28,7 @@ const navigation = [
 
 export default function Layout({ children }: LayoutProps) {
   const { user } = useAuth()
+  const { resolvedTheme, toggleTheme } = useTheme()
   const location = useLocation()
 
   return (
@@ -85,6 +89,19 @@ export default function Layout({ children }: LayoutProps) {
                   <p className="text-xs text-gray-500 truncate">{user.email.trim()}</p>
                 ) : null}
               </div>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+                aria-label={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+                title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+              >
+                {resolvedTheme === 'dark' ? (
+                  <MoonIcon className="h-5 w-5" aria-hidden />
+                ) : (
+                  <SunIcon className="h-5 w-5" aria-hidden />
+                )}
+              </button>
             </div>
           </div>
         </div>

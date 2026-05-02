@@ -74,10 +74,11 @@ struct FoodPredictor {
             exitWithError("invalidInput", "Could not parse request JSON: \(error.localizedDescription)")
         }
 
+        let instructions = PromptBuilder.instructions(for: request)
         let prompt = PromptBuilder.build(from: request)
-        fputs("[FoodPredictor] instructions:\n\(PromptBuilder.instructions)\n\n[FoodPredictor] prompt:\n\(prompt)\n", stderr)
+        fputs("[FoodPredictor] instructions:\n\(instructions)\n\n[FoodPredictor] prompt:\n\(prompt)\n", stderr)
 
-        let session = LanguageModelSession(instructions: PromptBuilder.instructions)
+        let session = LanguageModelSession(instructions: instructions)
 
         let recommendation: FoodRecommendation
         do {

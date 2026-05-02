@@ -21,6 +21,8 @@ struct OrderSummary: Codable {
     let topRestaurantsBySlot: [RestaurantPattern]
     let topRestaurantsOverall: [RestaurantPattern]
     let recentOrders: [RecentOrder]
+    let slotOrderCount: Int
+    let usedOverallFallbackForSlot: Bool
     let totalOrders: Int
     let avgSpend: Double
     let dayName: String
@@ -45,6 +47,9 @@ struct PredictorRequest: Codable {
 
 @Generable
 struct FoodRecommendation {
+    @Guide(description: "One concise sentence explaining why this recommendation fits the person's order patterns")
+    var reasoning: String
+
     @Guide(description: "Restaurant you recommend for this order, grounded in the user’s history")
     var recommendedRestaurant: String
 
@@ -56,9 +61,6 @@ struct FoodRecommendation {
         .range(0.0...1.0)
     )
     var confidenceScore: Double
-
-    @Guide(description: "One sentence explaining why this recommendation fits the user, referencing patterns in the data")
-    var reasoning: String
 }
 
 // MARK: - Output models (stdout JSON)
