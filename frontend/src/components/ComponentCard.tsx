@@ -40,8 +40,8 @@ export default function ComponentCard({
           contentFlush
             ? contentFlushTight
               ? 'min-w-0 px-0 py-0'
-              : 'min-w-0 px-0 py-4 sm:py-6'
-            : 'min-w-0 p-4 sm:p-6'
+              : 'min-w-0 px-0 py-6'
+            : 'min-w-0 p-6'
         }
       >
         <div className="min-w-0 space-y-6">{children}</div>

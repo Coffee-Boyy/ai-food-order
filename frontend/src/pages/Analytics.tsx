@@ -113,7 +113,7 @@ export default function Analytics() {
           <ClockIcon className="h-5 w-5 text-gray-400" />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           {analyticsData?.timePatterns.map((pattern) => (
             <div
               key={pattern.time_of_day}
@@ -199,7 +199,7 @@ export default function Analytics() {
       {/* Insights Summary */}
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Key Insights</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div className="p-4 bg-blue-50 rounded-lg">
             <h3 className="font-medium text-blue-900 mb-2">Most Active Day</h3>
             <p className="text-blue-700">

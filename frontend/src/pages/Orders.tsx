@@ -6,6 +6,8 @@ import {
   ShoppingBagIcon,
   ArrowPathIcon,
   CurrencyDollarIcon,
+  ChartBarIcon,
+  BuildingStorefrontIcon,
   XMarkIcon,
   MapPinIcon,
   PhoneIcon,
@@ -285,6 +287,8 @@ function getOrderRowKey(order: UberEatsOrder | Order, index: number) {
 
 type OrdersTableSortField = 'restaurant' | 'date' | 'total'
 
+const formatInteger = (n: number) => n.toLocaleString('en-US')
+
 export default function Orders() {
   const [detailOrder, setDetailOrder] = useState<UberEatsOrder | Order | null>(null)
   const [ordersFilter, setOrdersFilter] = useState('')
@@ -392,12 +396,40 @@ export default function Orders() {
     }
   )
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
     }).format(amount)
-  }
+
+  const orderStatCards = statsData
+    ? [
+        {
+          name: 'Total orders',
+          value: formatInteger(statsData.total_orders),
+          icon: ShoppingBagIcon,
+          iconClass: 'text-primary-600 dark:text-primary-400'
+        },
+        {
+          name: 'Total spent',
+          value: formatCurrency(statsData.total_spent),
+          icon: CurrencyDollarIcon,
+          iconClass: 'text-warning-600 dark:text-warning-400'
+        },
+        {
+          name: 'Avg order value',
+          value: formatCurrency(statsData.avg_order_value),
+          icon: ChartBarIcon,
+          iconClass: 'text-success-600 dark:text-success-400'
+        },
+        {
+          name: 'Restaurants',
+          value: formatInteger(statsData.unique_restaurants),
+          icon: BuildingStorefrontIcon,
+          iconClass: 'text-secondary-600 dark:text-secondary-400'
+        }
+      ]
+    : []
 
   const calculateItemTotal = (item: OrderItem) => {
     let total = item.price || 0
@@ -794,56 +826,23 @@ export default function Orders() {
         </div>
       )}
 
-      {/* Stats Cards */}
-      {statsData && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 rounded-lg bg-blue-500">
-                <ShoppingBagIcon className="h-6 w-6 text-white" />
+      {/* Stats Cards — layout matches Dashboard */}
+      {orderStatCards.length > 0 && (
+        <div className="grid grid-cols-4 gap-6">
+          {orderStatCards.map((stat) => (
+            <div
+              key={stat.name}
+              className="flex items-center gap-5 rounded-2xl border border-gray-200 bg-white px-6 py-3.5 shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
+                <stat.icon className={`size-6 ${stat.iconClass}`} aria-hidden />
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Orders</p>
-                <p className="text-2xl font-bold text-gray-900">{statsData.total_orders}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 rounded-lg bg-green-500">
-                <CurrencyDollarIcon className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Spent</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(statsData.total_spent)}</p>
+              <div className="min-w-0 flex-1">
+                <span className="text-theme-sm text-gray-500 dark:text-gray-400">{stat.name}</span>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-gray-800 dark:text-white/90">{stat.value}</p>
               </div>
             </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 rounded-lg bg-purple-500">
-                <CurrencyDollarIcon className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Avg Order Value</p>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(statsData.avg_order_value)}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 rounded-lg bg-yellow-500">
-                <ShoppingBagIcon className="h-6 w-6 text-white" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Restaurants</p>
-                <p className="text-2xl font-bold text-gray-900">{statsData.unique_restaurants}</p>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       )}
 
@@ -859,8 +858,8 @@ export default function Orders() {
       {/* Fetched Orders from UberEats */}
       {ordersData && ordersData.length > 0 && (
         <div className="space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="relative min-w-[200px] flex-1 lg:max-w-md">
+          <div className="flex flex-row items-center justify-between gap-3">
+            <div className="relative max-w-md min-w-[200px] flex-1">
               <MagnifyingGlassIcon
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
                 aria-hidden
@@ -910,7 +909,7 @@ export default function Orders() {
                       <TableCell
                         isHeader
                         scope="col"
-                        className="hidden min-w-[12rem] px-5 py-3 text-start font-medium text-theme-xs text-gray-500 md:table-cell dark:text-gray-400"
+                        className="min-w-[12rem] px-5 py-3 text-start font-medium text-theme-xs text-gray-500 dark:text-gray-400"
                       >
                         Items
                       </TableCell>
@@ -926,7 +925,7 @@ export default function Orders() {
                       <TableCell
                         isHeader
                         scope="col"
-                        className="hidden px-5 py-3 text-end font-medium text-theme-xs text-gray-500 sm:table-cell dark:text-gray-400"
+                        className="px-5 py-3 text-end font-medium text-theme-xs text-gray-500 dark:text-gray-400"
                       >
                         <span className="inline-flex w-full justify-end">
                           <SortHeaderButton field="date" label="Date" className="justify-end" />
@@ -952,7 +951,7 @@ export default function Orders() {
                           role="button"
                           aria-label={`View details for order from ${getRestaurantName(order)}`}
                         >
-                          <TableCell className="px-5 py-4 text-start sm:px-6">
+                          <TableCell className="px-6 py-4 text-start">
                             <div className="flex items-center gap-3">
                               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
                                 <ShoppingBagIcon className="h-4 w-4 text-gray-600 dark:text-gray-400" aria-hidden />
@@ -961,14 +960,8 @@ export default function Orders() {
                                 {getRestaurantName(order)}
                               </span>
                             </div>
-                            <p className="mt-1 max-w-[220px] truncate text-theme-sm text-gray-500 md:hidden dark:text-gray-400">
-                              {getOrderItemsSummary(order)}
-                            </p>
-                            <p className="mt-1 text-theme-xs text-gray-400 sm:hidden dark:text-gray-500">
-                              {formatDate(getOrderTime(order))}
-                            </p>
                           </TableCell>
-                          <TableCell className="hidden max-w-md px-5 py-4 text-start text-theme-sm text-gray-500 md:table-cell dark:text-gray-400">
+                          <TableCell className="max-w-md px-5 py-4 text-start text-theme-sm text-gray-500 dark:text-gray-400">
                             <span className="line-clamp-2" title={getOrderItemsSummary(order)}>
                               {getOrderItemsSummary(order)}
                             </span>
@@ -976,7 +969,7 @@ export default function Orders() {
                           <TableCell className="whitespace-nowrap px-5 py-4 text-end text-theme-sm font-semibold text-gray-800 dark:text-white/90">
                             {formatCurrency(getDisplayOrderTotal(order))}
                           </TableCell>
-                          <TableCell className="hidden whitespace-nowrap px-5 py-4 text-end text-theme-sm text-gray-500 sm:table-cell dark:text-gray-400">
+                          <TableCell className="whitespace-nowrap px-5 py-4 text-end text-theme-sm text-gray-500 dark:text-gray-400">
                             {formatDate(getOrderTime(order))}
                           </TableCell>
                         </TableRow>
@@ -989,7 +982,7 @@ export default function Orders() {
           </div>
 
           {filteredSortedOrders.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-gray-200 pt-4 dark:border-white/[0.05] sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-row items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-white/[0.05]">
               <p className="text-theme-sm text-gray-600 dark:text-gray-400">
                 Showing <span className="font-medium text-gray-900 dark:text-white/90">{ordersRangeStart}</span>–
                 <span className="font-medium text-gray-900 dark:text-white/90">{ordersRangeEnd}</span> of{' '}

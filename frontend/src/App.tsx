@@ -2,7 +2,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
-import Feed from './pages/Feed'
 import Orders from './pages/Orders'
 import Recommendations from './pages/Recommendations'
 import Analytics from './pages/Analytics'
@@ -69,7 +68,6 @@ function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/feed" element={<Feed />} />
         <Route path="/orders" element={<Orders />} />
         <Route path="/recommendations" element={<Recommendations />} />
         <Route path="/predictions" element={<Navigate to="/recommendations" replace />} />

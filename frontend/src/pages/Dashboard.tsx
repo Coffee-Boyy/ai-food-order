@@ -190,24 +190,24 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-6 lg:grid-cols-4">
+      <div className="grid grid-cols-4 gap-6">
         {stats.map((stat) => (
           <div
             key={stat.name}
-            className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03] md:p-6"
+            className="flex items-center gap-5 rounded-2xl border border-gray-200 bg-white px-6 py-3.5 shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
               <stat.icon className={`size-6 ${stat.iconClass}`} aria-hidden />
             </div>
-            <div className="mt-5">
+            <div className="min-w-0 flex-1">
               <span className="text-theme-sm text-gray-500 dark:text-gray-400">{stat.name}</span>
-              <p className="mt-2 text-2xl font-bold text-gray-800 dark:text-white/90">{stat.value}</p>
+              <p className="mt-1 text-2xl font-bold tabular-nums text-gray-800 dark:text-white/90">{stat.value}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid min-w-0 grid-cols-2 gap-6">
         <ComponentCard
           title="Recent orders"
           desc="Latest orders synced from your account."
@@ -246,7 +246,7 @@ export default function Dashboard() {
                       <TableCell
                         isHeader
                         scope="col"
-                        className="hidden px-5 py-3 text-end font-medium text-theme-xs text-gray-500 sm:table-cell dark:text-gray-400"
+                        className="px-5 py-3 text-end font-medium text-theme-xs text-gray-500 dark:text-gray-400"
                       >
                         Date
                       </TableCell>
@@ -262,14 +262,11 @@ export default function Dashboard() {
                           <p className="mt-0.5 truncate text-theme-xs text-gray-500 dark:text-gray-400">
                             {order.time_of_day}
                           </p>
-                          <p className="mt-1 text-theme-xs text-gray-400 sm:hidden dark:text-gray-500">
-                            {new Date(order.order_time).toLocaleDateString()}
-                          </p>
                         </TableCell>
                         <TableCell className="whitespace-nowrap px-5 py-4 text-end align-middle text-theme-sm font-semibold tabular-nums text-gray-800 dark:text-white/90">
                           {formatCurrency(order.total_amount)}
                         </TableCell>
-                        <TableCell className="hidden whitespace-nowrap px-5 py-4 text-end align-middle text-theme-sm tabular-nums text-gray-500 sm:table-cell dark:text-gray-400">
+                        <TableCell className="whitespace-nowrap px-5 py-4 text-end align-middle text-theme-sm tabular-nums text-gray-500 dark:text-gray-400">
                           {new Date(order.order_time).toLocaleDateString()}
                         </TableCell>
                       </TableRow>
@@ -316,14 +313,14 @@ export default function Dashboard() {
                       <TableCell
                         isHeader
                         scope="col"
-                        className="hidden px-5 py-3 text-start font-medium text-theme-xs text-gray-500 md:table-cell dark:text-gray-400"
+                        className="px-5 py-3 text-start font-medium text-theme-xs text-gray-500 dark:text-gray-400"
                       >
                         Items
                       </TableCell>
                       <TableCell
                         isHeader
                         scope="col"
-                        className="hidden px-5 py-3 text-end font-medium text-theme-xs text-gray-500 lg:table-cell dark:text-gray-400"
+                        className="px-5 py-3 text-end font-medium text-theme-xs text-gray-500 dark:text-gray-400"
                       >
                         Date
                       </TableCell>
@@ -343,20 +340,15 @@ export default function Dashboard() {
                           <span className="block truncate font-medium text-theme-sm text-gray-800 dark:text-white/90">
                             {recommendation.predicted_restaurant}
                           </span>
-                          {recommendation.predicted_items.length > 0 && (
-                            <p className="mt-1 line-clamp-2 text-theme-xs text-gray-600 md:hidden dark:text-gray-400">
-                              {recommendation.predicted_items.join(', ')}
-                            </p>
-                          )}
                         </TableCell>
-                        <TableCell className="hidden min-w-0 px-5 py-4 align-middle text-start text-theme-sm text-gray-600 md:table-cell dark:text-gray-400">
+                        <TableCell className="min-w-0 px-5 py-4 align-middle text-start text-theme-sm text-gray-600 dark:text-gray-400">
                           <span className="line-clamp-2" title={recommendation.predicted_items.join(', ')}>
                             {recommendation.predicted_items.length
                               ? recommendation.predicted_items.join(', ')
                               : '—'}
                           </span>
                         </TableCell>
-                        <TableCell className="hidden whitespace-nowrap px-5 py-4 text-end align-middle text-theme-sm tabular-nums text-gray-500 lg:table-cell dark:text-gray-400">
+                        <TableCell className="whitespace-nowrap px-5 py-4 text-end align-middle text-theme-sm tabular-nums text-gray-500 dark:text-gray-400">
                           {new Date(recommendation.created_at).toLocaleDateString()}
                         </TableCell>
                         <TableCell className="min-w-[10.5rem] whitespace-nowrap px-5 py-4 text-end align-middle">
@@ -433,9 +425,6 @@ export default function Dashboard() {
                               </>
                             ) : null}
                           </div>
-                          <p className="mt-2 text-theme-xs text-gray-400 lg:hidden dark:text-gray-500">
-                            {new Date(recommendation.created_at).toLocaleDateString()}
-                          </p>
                         </TableCell>
                       </TableRow>
                     ))}
