@@ -18,6 +18,7 @@ import {
   ChevronUpDownIcon
 } from '@heroicons/react/24/outline'
 import LoadingSpinner from '../components/LoadingSpinner'
+import StatCard from '../components/StatCard'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '../components/ui/table'
 import toast from 'react-hot-toast'
 
@@ -779,7 +780,7 @@ export default function Orders() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Order History</h1>
+          <h1 className="text-title-sm font-bold text-gray-900 dark:text-white/90">Order History</h1>
           <p className="text-gray-600">Your UberEats order history and analytics</p>
         </div>
         <button
@@ -830,18 +831,13 @@ export default function Orders() {
       {orderStatCards.length > 0 && (
         <div className="grid grid-cols-4 gap-6">
           {orderStatCards.map((stat) => (
-            <div
+            <StatCard
               key={stat.name}
-              className="flex items-center gap-5 rounded-2xl border border-gray-200 bg-white px-6 py-3.5 shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]"
-            >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
-                <stat.icon className={`size-6 ${stat.iconClass}`} aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1">
-                <span className="text-theme-sm text-gray-500 dark:text-gray-400">{stat.name}</span>
-                <p className="mt-1 text-2xl font-bold tabular-nums text-gray-800 dark:text-white/90">{stat.value}</p>
-              </div>
-            </div>
+              label={stat.name}
+              value={stat.value}
+              icon={stat.icon}
+              iconClass={stat.iconClass}
+            />
           ))}
         </div>
       )}

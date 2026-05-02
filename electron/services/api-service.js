@@ -386,6 +386,20 @@ function isCompleteRawOrder(rawOrder) {
   return hasDate && hasPrice;
 }
 
+/** Aligns with RecommendationWhenPicker / frontend (local hour 0–23). */
+function timeOfDayFromHour(hour) {
+  if (hour >= 6 && hour < 11) return 'breakfast';
+  if (hour >= 11 && hour < 16) return 'lunch';
+  if (hour >= 16 && hour < 22) return 'dinner';
+  return 'late_night';
+}
+
+/** Legacy normalized orders used "morning"; fold into breakfast for analytics. */
+function canonicalTimeOfDayKey(key) {
+  if (key === 'morning') return 'breakfast';
+  return key;
+}
+
 function normalizeOrder(rawOrder) {
   const base = rawOrder?.baseEaterOrder || rawOrder;
   const completedAt = base?.completedAt || base?.created_at || rawOrder?.created_at || new Date().toISOString();
@@ -405,7 +419,7 @@ function normalizeOrder(rawOrder) {
       'Unknown Restaurant',
     total_amount: totalAmount,
     order_time: completedAt,
-    time_of_day: orderDate.getHours() < 12 ? 'morning' : orderDate.getHours() < 17 ? 'lunch' : 'dinner',
+    time_of_day: timeOfDayFromHour(orderDate.getHours()),
     day_of_week: orderDate.getDay(),
     items: base?.shoppingCart?.items || rawOrder?.items || []
   };
@@ -436,7 +450,7 @@ function buildAnalytics(orders) {
 
   for (const order of orders) {
     const dayKey = order.day_of_week ?? new Date(order.order_time).getDay();
-    const timeKey = order.time_of_day || 'unknown';
+    const timeKey = canonicalTimeOfDayKey(order.time_of_day || 'unknown');
     const monthKey = new Date(order.order_time).toISOString().slice(0, 7) + '-01';
     const restaurantKey = order.restaurant_name || 'Unknown';
     const amount = order.total_amount || 0;

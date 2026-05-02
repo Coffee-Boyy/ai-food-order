@@ -13,6 +13,7 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline'
 import LoadingSpinner from '../components/LoadingSpinner'
+import StatCard from '../components/StatCard'
 import RestaurantFeed from '../components/RestaurantFeed'
 import ComponentCard from '../components/ComponentCard'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '../components/ui/table'
@@ -192,18 +193,13 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-4 gap-6">
         {stats.map((stat) => (
-          <div
+          <StatCard
             key={stat.name}
-            className="flex items-center gap-5 rounded-2xl border border-gray-200 bg-white px-6 py-3.5 shadow-theme-sm dark:border-gray-800 dark:bg-white/[0.03]"
-          >
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
-              <stat.icon className={`size-6 ${stat.iconClass}`} aria-hidden />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-theme-sm text-gray-500 dark:text-gray-400">{stat.name}</span>
-              <p className="mt-1 text-2xl font-bold tabular-nums text-gray-800 dark:text-white/90">{stat.value}</p>
-            </div>
-          </div>
+            label={stat.name}
+            value={stat.value}
+            icon={stat.icon}
+            iconClass={stat.iconClass}
+          />
         ))}
       </div>
 

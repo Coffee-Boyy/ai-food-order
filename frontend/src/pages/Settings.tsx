@@ -147,8 +147,10 @@ export default function Settings() {
               )}
             </div>
             <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                uberSession?.connected ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+              className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ${
+                uberSession?.connected
+                  ? 'bg-success-100 text-success-800 ring-success-200 dark:bg-success-950/50 dark:text-success-300 dark:ring-success-700/55'
+                  : 'bg-amber-100 text-amber-900 ring-amber-200 dark:bg-amber-950/55 dark:text-amber-200 dark:ring-amber-700/50'
               }`}
             >
               {uberSession?.connected ? 'Connected' : 'Not Connected'}
