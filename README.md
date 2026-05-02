@@ -1,40 +1,35 @@
 # AI Food Order
 
-A full-stack app for exploring UberEats order history and generating food-order insights with an AI-oriented dashboard experience.
+A macOS desktop app that imports your UberEats order history, visualises your spending habits, and uses on-device AI to suggest what you might want to order next.
 
-## Repository Layout
+## What it does
 
-- `frontend`: React + Vite + TypeScript dashboard UI.
-- `electron`: Electron main/preload process for desktop shell.
+**AI Food Order** connects to your UberEats account (via a session cookie), pulls your full order history, and stores it locally on your Mac. It then gives you a personal food-ordering dashboard with three main capabilities:
 
-## Frontend Features
+- **Analytics** – see breakdowns of your spending by day of the week, time of day, and month, along with your most-visited restaurants.
+- **Orders** – browse and search every past order synced from UberEats.
+- **AI Recommendations** – get on-device AI suggestions for what to order, based on your historical patterns for a given day and time. Recommendations are generated entirely on your Mac using [Apple Intelligence](https://developer.apple.com/documentation/FoundationModels) — no order data ever leaves your device.
 
-The frontend includes route-based views for:
+You can rate each recommendation (👍 / 👎) and request a fresh one; the app tracks your feedback and avoids repeating recent suggestions.
 
-- `Dashboard`
-- `Feed`
-- `Orders`
-- `Predictions`
-- `Analytics`
-- `Settings`
+## Tech stack
 
-Authentication/session checks and all data operations are handled by Electron main-process services through secure IPC.
+| Layer | Technology |
+|---|---|
+| UI | React 18, Vite, TypeScript, TailwindCSS |
+| Desktop shell | Electron (main process + IPC services) |
+| Local storage | SQLite via `better-sqlite3` |
+| AI predictions | Swift helper using Apple Foundation Models framework |
+| Package manager | pnpm |
 
-## Tech Stack
+## Requirements
 
-- **Frontend:** React 18, Vite, TypeScript, React Router, React Query, TailwindCSS
-- **Desktop services:** Electron main-process service layer (IPC)
-- **Package manager:** pnpm
+- **macOS 26 (Sequoia) or later** on an **Apple Silicon Mac** (M1 or later)
+- **Apple Intelligence** enabled (System Settings → Apple Intelligence & Siri)
+- **Node.js 18+** and **pnpm**
+- **Xcode 16.4+** (to compile the Swift AI helper)
 
-## Prerequisites
-
-- macOS 26 (Sequoia) or later on an Apple Silicon Mac
-- Apple Intelligence enabled (System Settings → Apple Intelligence & Siri)
-- Node.js 18+ (recommended)
-- pnpm (or Corepack-enabled Node)
-- Xcode 16.4+ (for the native Foundation Models helper)
-
-## Getting Started
+## Getting started
 
 ### 1. Install dependencies
 
@@ -42,95 +37,66 @@ Authentication/session checks and all data operations are handled by Electron ma
 pnpm install
 ```
 
-If Electron is run for the first time and its postinstall was blocked, allow it:
+If Electron's postinstall step was blocked, allow it first:
 
 ```bash
 pnpm approve-builds
 ```
 
-### 2. Build the native Foundation Models helper
+### 2. Build the AI helper
 
-The on-device AI prediction feature requires a compiled Swift helper.  Run this
-once after cloning (and after any changes to the Swift source):
+The recommendation feature requires a compiled Swift binary. Run this once after cloning:
 
 ```bash
 pnpm build:native
 ```
 
-This compiles `electron/native/foundation-model-predictor/` with `swift build`
-and places the binary at
-`electron/native/foundation-model-predictor/.build/release/FoodPredictor`.
+This builds `electron/native/foundation-model-predictor/` and places the binary at `.build/release/FoodPredictor`.
 
-### 3. Run the Electron desktop app in development mode
+### 3. Launch the app
 
 ```bash
 pnpm electron:dev
 ```
 
-This starts Vite and launches Electron pointed at `http://localhost:3005`. The frontend calls desktop services via IPC (no HTTP backend required).
+This starts the Vite dev server and opens the Electron window.
 
-## Frontend Scripts
+## Connecting your UberEats account
 
-Run these inside `frontend`:
+1. Open **Settings** inside the app.
+2. Paste your UberEats cookie header (must include `sid`, optionally `csrf_token`).
+3. Click **Connect Session**.
+4. Go to **Orders** and click **Sync from UberEats** to fetch your full history.
 
-- `pnpm dev` - start Vite dev server
-- `pnpm build` - production build
-- `pnpm preview` - preview production build
-- `pnpm lint` - run ESLint
-- `pnpm type-check` - run TypeScript checks
+Your session credentials are stored locally in the app's user data folder (`~/Library/Application Support/ai-food-order` on macOS) and are never sent anywhere else. Use **Disconnect** in Settings to remove them.
 
-## AI Predictions
+## Available scripts
 
-Predictions are generated entirely on-device using Apple's
-[Foundation Models framework](https://developer.apple.com/documentation/FoundationModels).
-No order data is sent to any external server — only compact pattern summaries
-(top restaurants, common items, recency signals) are passed to the model.
+Run from the repository root:
 
-The model must be available on the device:
-
-| Requirement | Details |
+| Command | Description |
 |---|---|
-| Hardware | Apple Silicon Mac (M1 or later) |
-| OS | macOS 26 or later |
-| Apple Intelligence | Enabled in System Settings |
-| Binary | `pnpm build:native` must have been run |
+| `pnpm electron:dev` | Start Vite + Electron in development mode |
+| `pnpm electron:start` | Start Electron against a pre-built frontend |
+| `pnpm build:native` | Compile the Swift Foundation Models helper |
+| `pnpm test:electron` | Run Electron-side unit tests |
+| `pnpm frontend:dev` | Start the Vite dev server on its own |
 
-If Apple Intelligence is unavailable, the Predictions page displays an
-actionable error message explaining the reason and how to resolve it.
+Run from the `frontend/` directory:
 
-## Root Scripts
+| Command | Description |
+|---|---|
+| `pnpm dev` | Start Vite dev server |
+| `pnpm build` | Production build |
+| `pnpm lint` | Run ESLint |
+| `pnpm type-check` | Run TypeScript checks |
 
-Run these from the repository root:
+## Privacy
 
-- `pnpm backend:reload` - rebuild/restart backend container
-- `pnpm frontend:dev` - run Vite frontend
-- `pnpm electron:dev` - run desktop app (Vite + Electron)
-- `pnpm electron:start` - start Electron against a built frontend (`frontend/dist`)
-- `pnpm build:native` - compile the Swift Foundation Models helper
-- `pnpm test:electron` - run Electron-side unit tests (no test framework needed)
-
-You can point Electron to a different backend URL with:
-
-```bash
-ELECTRON_API_URL=http://localhost:3001 pnpm electron:start
-```
-
-## Authentication Flow
-
-The app now supports importing an UberEats web session directly:
-
-- Go to `Settings` in the app
-- Paste a valid UberEats cookie header containing `sid` (and optionally `csrf_token`)
-- Click `Connect Session`, then use `Sync from UberEats` on the `Orders` page
-- The UberEats session (`sid` / `csrf_token`) is saved under the app’s user data folder (e.g. `Application Support/ai-food-order` on macOS) and restored when you reopen the desktop app. The main process sets the app name from `package.json` so that path stays stable in development. Use **Disconnect** in Settings to clear it.
-- Full history sync loads every page from Uber (`getPastOrdersV1`), passing `lastWorkflowUUID` from each response until there are no more orders; the Orders screen shows a progress bar while pages are fetched.
-
-For Electron, this same flow can be automated by capturing cookies from an in-app Uber login window and POSTing them to `/api/uber/session/import`.
+All data is stored locally in a SQLite database on your Mac. The AI prediction feature passes only compact, anonymised pattern summaries (top restaurants, common items, recency signals) to the on-device model — no raw order data or personal identifiers are included.
 
 ## Troubleshooting
 
-- If desktop service calls fail, make sure you launched the app using Electron (`pnpm electron:dev`), not only Vite.
-- If types or linting fail, run:
-  - `pnpm lint`
-  - `pnpm type-check`
-
+- **Desktop service calls fail** – make sure you launched the app via `pnpm electron:dev`, not just `pnpm frontend:dev`.
+- **Apple Intelligence unavailable** – check that Apple Intelligence is enabled in System Settings and that you are running macOS 26 on Apple Silicon.
+- **Type or lint errors** – run `pnpm lint` and `pnpm type-check` from the repo root.
