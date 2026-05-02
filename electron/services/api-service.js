@@ -1040,6 +1040,11 @@ async function refreshOrdersFromUberOnStartup() {
   }
 }
 
+function hasUberEatsSession() {
+  hydrateUberSessionFromDiskIfNeeded(APP_USER_ID);
+  return Boolean(getUberSession(APP_USER_ID));
+}
+
 module.exports = {
   handleApiRequest,
   executeOrderSyncWithProgressForDefaultUser,
@@ -1047,5 +1052,6 @@ module.exports = {
   bootstrapPersistedOrders,
   bootstrapPersistedPredictions,
   refreshOrdersFromUberOnStartup,
-  loadUberEatsUserOnStartup
+  loadUberEatsUserOnStartup,
+  hasUberEatsSession
 };

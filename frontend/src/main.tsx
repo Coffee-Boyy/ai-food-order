@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from 'react-query'
-import { Toaster } from 'react-hot-toast'
+import toast, { Toaster } from 'react-hot-toast'
 import App from './App.tsx'
 import { ThemeProvider } from './hooks/useTheme.tsx'
 import './index.css'
@@ -19,11 +19,39 @@ const queryClient = new QueryClient({
 })
 
 async function bootstrap() {
-  window.desktop?.onOrdersBackgroundRefresh?.(() => {
-    queryClient.invalidateQueries(['orders'])
-    queryClient.invalidateQueries(['orderStats'])
-    queryClient.invalidateQueries(['dashboard'])
-    queryClient.invalidateQueries(['session'])
+  let ordersStartupRefreshToastId: string | undefined
+
+  window.desktop?.onOrdersBackgroundRefreshStart?.(() => {
+    if (ordersStartupRefreshToastId !== undefined) {
+      toast.dismiss(ordersStartupRefreshToastId)
+    }
+    ordersStartupRefreshToastId = toast.loading('Updating orders from UberEats…', {
+      duration: Infinity,
+    })
+  })
+
+  window.desktop?.onOrdersBackgroundRefreshEnd?.((payload) => {
+    if (ordersStartupRefreshToastId !== undefined) {
+      toast.dismiss(ordersStartupRefreshToastId)
+      ordersStartupRefreshToastId = undefined
+    }
+    if (payload?.error) {
+      toast.error(`Could not refresh orders: ${payload.error}`)
+      return
+    }
+    if (payload?.updated) {
+      queryClient.invalidateQueries(['orders'])
+      queryClient.invalidateQueries(['orderStats'])
+      queryClient.invalidateQueries(['dashboard'])
+      queryClient.invalidateQueries(['session'])
+      const n = payload.newCount ?? 0
+      if (n > 0) {
+        toast.success(
+          `Synced ${n} new order${n === 1 ? '' : 's'} from UberEats`,
+          { duration: 4000 }
+        )
+      }
+    }
   })
 
   window.desktop?.onUberProfileUpdated?.(() => {

@@ -40,6 +40,30 @@ export default function Settings() {
     }
   )
 
+  const connectUberBrowserMutation = useMutation(
+    async () => {
+      if (!window.desktop?.loginUberEats) {
+        throw new Error('Sign-in window is only available in the desktop app.')
+      }
+      const result = await window.desktop.loginUberEats()
+      if (!result.ok) {
+        throw new Error(result.error?.message || 'UberEats sign-in failed')
+      }
+      return result.data
+    },
+    {
+      onSuccess: () => {
+        toast.success('UberEats session connected')
+        void queryClient.invalidateQueries(['session'])
+      },
+      onError: (error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : 'Failed to connect UberEats session'
+        toast.error(message)
+      }
+    }
+  )
+
   const disconnectUberMutation = useMutation(
     async () => {
       await apiClient.delete('/api/uber/session')
@@ -133,7 +157,7 @@ export default function Settings() {
               <p className="text-sm text-gray-500">
                 {uberSession?.connected
                   ? 'Connected to your UberEats account'
-                  : 'Not connected. Paste a session cookie to link your account.'}
+                  : 'Not connected. Sign in through Uber in the app window, or paste cookies below.'}
               </p>
               {uberSession?.lastImportedAt && (
                 <p className="text-xs text-gray-500 mt-1">
@@ -158,23 +182,53 @@ export default function Settings() {
           </div>
 
           <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-            <label className="block text-sm font-medium text-gray-700">UberEats Cookie Header</label>
-            <textarea
-              value={cookieHeader}
-              onChange={(e) => setCookieHeader(e.target.value)}
-              placeholder="sid=...; csrf_token=...;"
-              rows={3}
-              className="input-field"
-            />
-            <div className="flex items-center gap-3">
+            {typeof window !== 'undefined' && window.desktop?.loginUberEats && (
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => connectUberBrowserMutation.mutate()}
+                  disabled={connectUberBrowserMutation.isLoading || connectUberMutation.isLoading}
+                  className="cursor-pointer rounded-lg bg-primary-600 px-3 py-2 text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {connectUberBrowserMutation.isLoading ? 'Opening Uber…' : 'Sign in with UberEats'}
+                </button>
+                <p className="text-sm text-gray-600">
+                  Opens an in-app browser; log in as usual and we will save your session.
+                </p>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                UberEats cookie header (optional)
+              </label>
+              <p className="text-xs text-gray-500 mt-1 mb-2">
+                Advanced: paste a Cookie header from DevTools if you prefer not to use the sign-in
+                window.
+              </p>
+              <textarea
+                value={cookieHeader}
+                onChange={(e) => setCookieHeader(e.target.value)}
+                placeholder="sid=...; csrf_token=...;"
+                rows={3}
+                className="input-field"
+              />
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
               <button
+                type="button"
                 onClick={() => connectUberMutation.mutate(cookieHeader)}
-                disabled={!cookieHeader.trim() || connectUberMutation.isLoading}
+                disabled={
+                  !cookieHeader.trim() ||
+                  connectUberMutation.isLoading ||
+                  connectUberBrowserMutation.isLoading
+                }
                 className="cursor-pointer rounded-lg bg-primary-600 px-3 py-2 text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {connectUberMutation.isLoading ? 'Connecting...' : 'Connect Session'}
+                {connectUberMutation.isLoading ? 'Connecting...' : 'Connect from cookie header'}
               </button>
               <button
+                type="button"
                 onClick={() => disconnectUberMutation.mutate()}
                 disabled={disconnectUberMutation.isLoading || !uberSession?.connected}
                 className="cursor-pointer rounded-lg bg-gray-200 px-3 py-2 text-gray-800 transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-60"

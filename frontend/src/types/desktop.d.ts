@@ -1,5 +1,12 @@
 export {}
 
+export type OrdersBackgroundRefreshEndPayload = {
+  updated: boolean
+  newCount?: number
+  pages?: number
+  error?: string
+}
+
 export type OrdersSyncProgressPayload =
   | {
       type: 'progress'
@@ -36,6 +43,22 @@ declare global {
           status: number
         }
       }>
+      loginUberEats?: () => Promise<
+        | {
+            ok: true
+            data?: {
+              message?: string
+              connected?: boolean
+              createdAt?: string
+            }
+          }
+        | {
+            ok: false
+            error?: {
+              message: string
+            }
+          }
+      >
       syncOrdersFull?: () => Promise<{
         ok: boolean
         data?: {
@@ -50,7 +73,8 @@ declare global {
         }
       }>
       onOrdersSyncProgress?: (callback: (payload: OrdersSyncProgressPayload) => void) => () => void
-      onOrdersBackgroundRefresh?: (callback: () => void) => () => void
+      onOrdersBackgroundRefreshStart?: (callback: () => void) => () => void
+      onOrdersBackgroundRefreshEnd?: (callback: (payload: OrdersBackgroundRefreshEndPayload) => void) => () => void
       onUberProfileUpdated?: (callback: () => void) => () => void
     }
   }

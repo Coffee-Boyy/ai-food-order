@@ -22,8 +22,10 @@ const {
   bootstrapPersistedOrders,
   bootstrapPersistedPredictions,
   refreshOrdersFromUberOnStartup,
-  loadUberEatsUserOnStartup
+  loadUberEatsUserOnStartup,
+  hasUberEatsSession
 } = require('./services/api-service');
+const { captureUberSessionViaBrowser } = require('./services/uber-auth');
 
 const isDev = Boolean(process.env.ELECTRON_START_URL);
 
@@ -80,6 +82,21 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.handle('uber:login', async () => {
+    try {
+      const { sid, csrfToken } = await captureUberSessionViaBrowser();
+      const data = await handleApiRequest('POST', '/api/uber/session/import', { sid, csrfToken });
+      return { ok: true, data };
+    } catch (error) {
+      return {
+        ok: false,
+        error: {
+          message: error.message || 'UberEats login failed'
+        }
+      };
+    }
+  });
+
   ipcMain.handle('orders:sync', async (event) => {
     try {
       const data = await executeOrderSyncWithProgressForDefaultUser((payload) => {
@@ -110,8 +127,26 @@ app.whenReady().then(() => {
   createMainWindow();
 
   setImmediate(() => {
-    loadUberEatsUserOnStartup()
-      .then((result) => {
+    void (async () => {
+      if (!hasUberEatsSession()) {
+        try {
+          const { sid, csrfToken } = await captureUberSessionViaBrowser();
+          await handleApiRequest('POST', '/api/uber/session/import', { sid, csrfToken });
+          BrowserWindow.getAllWindows().forEach((win) => {
+            if (!win.isDestroyed()) {
+              win.webContents.send('uber-profile-updated');
+            }
+          });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!msg.includes('closed before')) {
+            console.error('[uber] embedded login on startup', e);
+          }
+        }
+      }
+
+      try {
+        const result = await loadUberEatsUserOnStartup();
         if (result?.ok) {
           BrowserWindow.getAllWindows().forEach((win) => {
             if (!win.isDestroyed()) {
@@ -119,20 +154,48 @@ app.whenReady().then(() => {
             }
           });
         }
-      })
-      .catch((e) => console.error('[uber] getUserV1 on startup', e));
+      } catch (e) {
+        console.error('[uber] getUserV1 on startup', e);
+      }
 
-    refreshOrdersFromUberOnStartup()
-      .then((result) => {
-        if (result?.updated) {
+      let ordersRefreshBroadcast = false;
+      try {
+        if (hasUberEatsSession()) {
+          ordersRefreshBroadcast = true;
           BrowserWindow.getAllWindows().forEach((win) => {
             if (!win.isDestroyed()) {
-              win.webContents.send('orders-background-refresh');
+              win.webContents.send('orders-background-refresh-start');
             }
           });
         }
-      })
-      .catch((e) => console.error('[orders] background refresh', e));
+        const result = await refreshOrdersFromUberOnStartup();
+        if (ordersRefreshBroadcast) {
+          BrowserWindow.getAllWindows().forEach((win) => {
+            if (!win.isDestroyed()) {
+              win.webContents.send('orders-background-refresh-end', {
+                updated: Boolean(result?.updated),
+                newCount: result?.newCount ?? 0,
+                pages: result?.pages
+              });
+            }
+          });
+        }
+      } catch (e) {
+        console.error('[orders] background refresh', e);
+        if (ordersRefreshBroadcast) {
+          const message = e instanceof Error ? e.message : String(e);
+          BrowserWindow.getAllWindows().forEach((win) => {
+            if (!win.isDestroyed()) {
+              win.webContents.send('orders-background-refresh-end', {
+                updated: false,
+                newCount: 0,
+                error: message
+              });
+            }
+          });
+        }
+      }
+    })();
   });
 
   app.on('activate', () => {
