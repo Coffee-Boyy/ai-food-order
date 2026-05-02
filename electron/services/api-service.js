@@ -1,4 +1,5 @@
 const sessionPersistence = require('./session-persistence');
+const userProfilePersistence = require('./user-profile-persistence');
 const ordersPersistence = require('./orders-persistence');
 const predictionsPersistence = require('./predictions-persistence');
 const { generatePrediction } = require('./llm-prediction-service');
@@ -54,6 +55,13 @@ function restorePersistedUberSession() {
   const rec = sessionPersistence.read();
   if (!rec) return;
   store.uberSessions.set(APP_USER_ID, sessionFromPersistedRecord(rec));
+}
+
+function restorePersistedUserProfile() {
+  const rec = userProfilePersistence.read();
+  if (!rec) return;
+  const user = ensureAppUser();
+  store.users.set(APP_USER_ID, { ...user, ...rec });
 }
 
 /** Re-load from disk if memory was cleared (e.g. module reload) but the session file remains. */
@@ -143,6 +151,8 @@ function profilePatchFromUberUserData(data) {
 
   if (!firstName && !lastName) {
     const full =
+      (typeof nameSrc.displayName === 'string' && nameSrc.displayName) ||
+      (typeof nameSrc.formattedName === 'string' && nameSrc.formattedName) ||
       (typeof nameSrc.fullName === 'string' && nameSrc.fullName) ||
       (typeof nameSrc.name === 'string' && nameSrc.name) ||
       (typeof data.fullName === 'string' && data.fullName) ||
@@ -169,18 +179,34 @@ function profilePatchFromUberUserData(data) {
   return Object.keys(patch).length > 0 ? patch : null;
 }
 
+/** Merge name fields from `data` and top-level `raw` (Uber sometimes nests differently). */
+function profilePatchFromUberPayload({ data, raw }) {
+  const candidates = [data, raw].filter((x) => x && typeof x === 'object');
+  let merged = null;
+  for (const obj of candidates) {
+    const patch = profilePatchFromUberUserData(obj);
+    if (patch) {
+      merged = merged ? { ...merged, ...patch } : { ...patch };
+    }
+  }
+  return merged && Object.keys(merged).length > 0 ? merged : null;
+}
+
 function applyUberUserPayloadToStore(userId, { data, raw }) {
   const fetchedAt = new Date().toISOString();
   store.uberEatsUserByUserId.set(userId, { data, raw, fetchedAt });
 
   const user = store.users.get(userId);
   if (user) {
-    const patch = profilePatchFromUberUserData(data);
+    const patch = profilePatchFromUberPayload({ data, raw });
     if (patch) {
-      store.users.set(userId, {
-        ...user,
-        ...patch
-      });
+      const nextUser = { ...user, ...patch };
+      store.users.set(userId, nextUser);
+      try {
+        userProfilePersistence.writeFromUserSlice(nextUser);
+      } catch (err) {
+        console.error('[user-profile] Failed to persist profile', err);
+      }
     }
   }
   reconcileDataScopeFromUberProfile();
@@ -668,7 +694,18 @@ async function handleApiRequest(method, path, body) {
     store.uberEatsUserByUserId.delete(appUserId);
     const localUser = store.users.get(appUserId);
     if (localUser) {
-      store.users.set(appUserId, { ...localUser, pictureUrl: null });
+      store.users.set(appUserId, {
+        ...localUser,
+        firstName: '',
+        lastName: '',
+        email: '',
+        pictureUrl: null
+      });
+    }
+    try {
+      userProfilePersistence.clear();
+    } catch (err) {
+      console.error('[user-profile] Failed to clear persisted profile', err);
     }
     store.ordersByUser.delete(scopeToClear);
     store.predictionsByUser.delete(scopeToClear);
@@ -682,10 +719,6 @@ async function handleApiRequest(method, path, body) {
     }
     sessionPersistence.clear();
     return { message: 'UberEats session removed' };
-  }
-
-  if (method === 'POST' && path === '/api/orders/sync') {
-    return executeOrderSyncWithProgress(appUserId, dataUserId, () => {});
   }
 
   if (method === 'GET' && path === '/api/orders') return { orders };
@@ -747,6 +780,11 @@ async function handleApiRequest(method, path, body) {
       lastName: body?.lastName || user.lastName
     };
     store.users.set(appUserId, nextUser);
+    try {
+      userProfilePersistence.writeFromUserSlice(nextUser);
+    } catch (err) {
+      console.error('[user-profile] Failed to persist profile', err);
+    }
     return { user: { ...nextUser, id: dataUserId } };
   }
 
@@ -780,6 +818,11 @@ async function handleApiRequest(method, path, body) {
       console.error('[orders-persistence] Failed to clear data scope', err);
     }
     sessionPersistence.clear();
+    try {
+      userProfilePersistence.clear();
+    } catch (err) {
+      console.error('[user-profile] Failed to clear persisted profile', err);
+    }
     return { message: 'Account data cleared' };
   }
 
@@ -1049,6 +1092,7 @@ module.exports = {
   handleApiRequest,
   executeOrderSyncWithProgressForDefaultUser,
   restorePersistedUberSession,
+  restorePersistedUserProfile,
   bootstrapPersistedOrders,
   bootstrapPersistedPredictions,
   refreshOrdersFromUberOnStartup,

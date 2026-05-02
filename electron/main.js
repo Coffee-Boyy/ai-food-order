@@ -13,12 +13,14 @@ try {
 }
 
 const sessionPersistence = require('./services/session-persistence');
+const userProfilePersistence = require('./services/user-profile-persistence');
 const ordersPersistence = require('./services/orders-persistence');
 const predictionsPersistence = require('./services/predictions-persistence');
 const {
   handleApiRequest,
   executeOrderSyncWithProgressForDefaultUser,
   restorePersistedUberSession,
+  restorePersistedUserProfile,
   bootstrapPersistedOrders,
   bootstrapPersistedPredictions,
   refreshOrdersFromUberOnStartup,
@@ -58,11 +60,13 @@ function createMainWindow() {
 app.whenReady().then(() => {
   const userData = app.getPath('userData');
   sessionPersistence.setUserDataDirectory(userData);
+  userProfilePersistence.setUserDataDirectory(userData);
   ordersPersistence.setUserDataDirectory(userData);
   predictionsPersistence.setUserDataDirectory(userData);
   ordersPersistence.init();
   predictionsPersistence.init();
   restorePersistedUberSession();
+  restorePersistedUserProfile();
   bootstrapPersistedOrders();
   bootstrapPersistedPredictions();
 

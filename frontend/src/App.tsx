@@ -31,7 +31,7 @@ function App() {
 
           <h2 className="text-title-sm font-bold text-gray-900 dark:text-white/90">No session available</h2>
           <p className="text-theme-xl text-gray-600 dark:text-gray-400">
-            Use the CLI tool to create a session first.
+            Launch this app with Electron (<span className="font-mono text-theme-sm">pnpm electron:dev</span>) and try again.
           </p>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-8 text-left shadow-theme-lg dark:border-gray-800 dark:bg-white/[0.03]">
@@ -41,21 +41,21 @@ function App() {
                 <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-theme-sm font-medium text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">
                   1
                 </div>
-                <span className="text-theme-sm text-gray-700 dark:text-gray-300">Install and run the CLI tool</span>
+                <span className="text-theme-sm text-gray-700 dark:text-gray-300">Run the desktop app from the project root</span>
               </div>
 
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-theme-sm font-medium text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">
                   2
                 </div>
-                <span className="text-theme-sm text-gray-700 dark:text-gray-300">Authenticate with your UberEats account</span>
+                <span className="text-theme-sm text-gray-700 dark:text-gray-300">Open Settings and connect your UberEats account</span>
               </div>
 
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-theme-sm font-medium text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">
                   3
                 </div>
-                <span className="text-theme-sm text-gray-700 dark:text-gray-300">Refresh this page to access the dashboard</span>
+                <span className="text-theme-sm text-gray-700 dark:text-gray-300">Reload if the dashboard does not appear</span>
               </div>
             </div>
           </div>

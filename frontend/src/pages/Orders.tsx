@@ -327,14 +327,14 @@ export default function Orders() {
 
   const syncOrdersMutation = useMutation(
     async () => {
-      if (window.desktop?.syncOrdersFull) {
-        const res = await window.desktop.syncOrdersFull()
-        if (!res.ok) {
-          throw new Error(res.error?.message || 'Failed to sync orders')
-        }
-        return res.data
+      if (!window.desktop?.syncOrdersFull) {
+        throw new Error('Order sync requires the desktop app.')
       }
-      return apiClient.post<{ syncedCount?: number; pages?: number }>('/api/orders/sync')
+      const res = await window.desktop.syncOrdersFull()
+      if (!res.ok) {
+        throw new Error(res.error?.message || 'Failed to sync orders')
+      }
+      return res.data
     },
     {
       onMutate: () => {

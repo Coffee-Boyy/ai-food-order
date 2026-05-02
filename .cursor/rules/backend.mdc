@@ -2,4 +2,4 @@
 alwaysApply: true
 ---
 
-Reload the backend by running "docker compose up -d --build backend" since we are running the backend application in docker.
+The app API runs in the Electron **main process** (`electron/main.js` + `electron/services/api-service.js`), not a separate HTTP server. The renderer calls it via **IPC** (`desktop.request`, `orders:sync`, etc.). To pick up main-process changes, restart Electron (e.g. `pnpm electron:dev` or `pnpm electron:start`).
