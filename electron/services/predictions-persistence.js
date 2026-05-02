@@ -120,6 +120,18 @@ function clearPredictionsForUser(userId) {
   db.prepare('DELETE FROM predictions WHERE user_id = ?').run(userId);
 }
 
+/**
+ * Move prediction rows to another user_id (first-time Uber scope upgrade).
+ */
+function migratePredictionsUserId(fromUserId, toUserId) {
+  init();
+  if (fromUserId === toUserId) return;
+  const hasTarget =
+    db.prepare('SELECT COUNT(*) as c FROM predictions WHERE user_id = ?').get(toUserId).c > 0;
+  if (hasTarget) return;
+  db.prepare('UPDATE predictions SET user_id = ? WHERE user_id = ?').run(toUserId, fromUserId);
+}
+
 module.exports = {
   setUserDataDirectory,
   init,
@@ -128,5 +140,6 @@ module.exports = {
   updateFeedback,
   deletePrediction,
   loadPredictionsForUser,
-  clearPredictionsForUser
+  clearPredictionsForUser,
+  migratePredictionsUserId
 };

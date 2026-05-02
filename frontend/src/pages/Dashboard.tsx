@@ -53,7 +53,7 @@ interface DashboardData {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth()
+  const { user, uberSession } = useAuth()
   const queryClient = useQueryClient()
 
   const feedbackMutation = useMutation(
@@ -428,7 +428,9 @@ export default function Dashboard() {
                 </Table>
               ) : (
                 <p className="px-6 py-6 text-center text-theme-sm text-gray-500 dark:text-gray-400">
-                  No recent recommendations
+                  {uberSession?.connected
+                    ? 'No recent recommendations'
+                    : 'Connect your UberEats session in Settings to see AI recommendations here.'}
                 </p>
               )}
             </div>

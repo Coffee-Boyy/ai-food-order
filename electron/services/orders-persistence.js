@@ -107,6 +107,44 @@ function clearOrdersForUser(userId) {
   db.prepare('DELETE FROM app_kv WHERE key = ?').run(`lastSync:${userId}`);
 }
 
+const DATA_SCOPE_KV = 'dataScopeUserId';
+
+function getPersistedDataScopeUserId() {
+  init();
+  const row = db.prepare('SELECT value FROM app_kv WHERE key = ?').get(DATA_SCOPE_KV);
+  return row && typeof row.value === 'string' && row.value.length > 0 ? row.value : null;
+}
+
+function setPersistedDataScopeUserId(userId) {
+  init();
+  db.prepare('INSERT OR REPLACE INTO app_kv (key, value) VALUES (?, ?)').run(DATA_SCOPE_KV, userId);
+}
+
+function clearPersistedDataScopeUserId() {
+  init();
+  db.prepare('DELETE FROM app_kv WHERE key = ?').run(DATA_SCOPE_KV);
+}
+
+/**
+ * Move all synced orders + lastSync key from one user_id to another (first-time Uber scope upgrade).
+ */
+function migrateOrdersUserId(fromUserId, toUserId) {
+  init();
+  if (fromUserId === toUserId) return;
+  const hasTarget =
+    db.prepare('SELECT COUNT(*) as c FROM synced_orders WHERE user_id = ?').get(toUserId).c > 0;
+  if (hasTarget) return;
+  const txn = db.transaction(() => {
+    db.prepare('UPDATE synced_orders SET user_id = ? WHERE user_id = ?').run(toUserId, fromUserId);
+    const row = db.prepare('SELECT value FROM app_kv WHERE key = ?').get(`lastSync:${fromUserId}`);
+    if (row && typeof row.value === 'string') {
+      db.prepare('INSERT OR REPLACE INTO app_kv (key, value) VALUES (?, ?)').run(`lastSync:${toUserId}`, row.value);
+      db.prepare('DELETE FROM app_kv WHERE key = ?').run(`lastSync:${fromUserId}`);
+    }
+  });
+  txn();
+}
+
 module.exports = {
   setUserDataDirectory,
   init,
@@ -115,5 +153,9 @@ module.exports = {
   loadOrdersForUser,
   setLastSyncAt,
   getLastSyncAt,
-  clearOrdersForUser
+  clearOrdersForUser,
+  getPersistedDataScopeUserId,
+  setPersistedDataScopeUserId,
+  clearPersistedDataScopeUserId,
+  migrateOrdersUserId
 };

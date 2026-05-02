@@ -174,15 +174,106 @@ function applyUberUserPayloadToStore(userId, { data, raw }) {
   store.uberEatsUserByUserId.set(userId, { data, raw, fetchedAt });
 
   const user = store.users.get(userId);
-  if (!user) return false;
-  const patch = profilePatchFromUberUserData(data);
-  if (!patch) return true;
+  if (user) {
+    const patch = profilePatchFromUberUserData(data);
+    if (patch) {
+      store.users.set(userId, {
+        ...user,
+        ...patch
+      });
+    }
+  }
+  reconcileDataScopeFromUberProfile();
+  return Boolean(user);
+}
 
-  store.users.set(userId, {
-    ...user,
-    ...patch
-  });
-  return true;
+/** Stable Uber Eats account id from getUserV1 `data` (UUID-shaped strings). */
+function extractUberEatsAccountId(data) {
+  if (!data || typeof data !== 'object') return null;
+  const candidates = [
+    data.uuid,
+    data.userUUID,
+    data.userUuid,
+    data.eaterUUID,
+    data.eaterUuid,
+    data.userId,
+    data.user && data.user.uuid,
+    data.user && data.user.userUUID,
+    data.user && data.user.userUuid,
+    data.eater && data.eater.uuid,
+    data.eater && data.eater.userUUID,
+    data.eater && data.eater.userUuid,
+    data.auth && data.auth.userUuid,
+    data.account && data.account.uuid
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'string') {
+      const t = c.trim();
+      if (t.length >= 8 && /^[a-f0-9-]+$/i.test(t)) return t;
+    }
+  }
+  return null;
+}
+
+/**
+ * Orders + predictions are keyed by this id so data follows the Uber Eats account.
+ * Before profile load: `local-user` or a previously persisted `uber:…` scope (cold start).
+ */
+function getDataScopeUserId() {
+  const uber = store.uberEatsUserByUserId.get(APP_USER_ID);
+  const fromUber = uber?.data && extractUberEatsAccountId(uber.data);
+  if (fromUber) return `uber:${fromUber}`;
+  try {
+    const persisted = ordersPersistence.getPersistedDataScopeUserId();
+    if (persisted && persisted.length > 0) return persisted;
+  } catch (_) {
+    /* ignore */
+  }
+  return APP_USER_ID;
+}
+
+function migrateMemoryDataScope(fromId, toId) {
+  if (fromId === toId) return;
+  const toOrders = store.ordersByUser.get(toId)?.length || 0;
+  const toPred = store.predictionsByUser.get(toId)?.length || 0;
+  if (toOrders > 0 || toPred > 0) return;
+  const o = store.ordersByUser.get(fromId);
+  const p = store.predictionsByUser.get(fromId);
+  const sync = store.lastSyncByUser.get(fromId);
+  if (o?.length) store.ordersByUser.set(toId, o);
+  if (p?.length) store.predictionsByUser.set(toId, p);
+  if (sync) store.lastSyncByUser.set(toId, sync);
+  store.ordersByUser.delete(fromId);
+  store.predictionsByUser.delete(fromId);
+  store.lastSyncByUser.delete(fromId);
+}
+
+/** After Uber profile loads: migrate SQLite + memory from `local-user` → `uber:<uuid>` once. */
+function reconcileDataScopeFromUberProfile() {
+  const uber = store.uberEatsUserByUserId.get(APP_USER_ID);
+  const uuid = uber?.data && extractUberEatsAccountId(uber.data);
+  if (!uuid) return;
+  const targetId = `uber:${uuid}`;
+  let current = null;
+  try {
+    current = ordersPersistence.getPersistedDataScopeUserId();
+  } catch (_) {
+    /* ignore */
+  }
+  if (current === targetId) return;
+  const fromId = APP_USER_ID;
+  try {
+    ordersPersistence.migrateOrdersUserId(fromId, targetId);
+    predictionsPersistence.migratePredictionsUserId(fromId, targetId);
+  } catch (err) {
+    console.error('[data-scope] SQLite migration failed', err);
+  }
+  migrateMemoryDataScope(fromId, targetId);
+  try {
+    ordersPersistence.setPersistedDataScopeUserId(targetId);
+  } catch (err) {
+    console.error('[data-scope] Failed to persist scope id', err);
+  }
 }
 
 const MAX_ORDER_SYNC_PAGES = 250;
@@ -519,32 +610,33 @@ function buildPreviousPredictionsForRevise(predictionList, leafId) {
 
 async function handleApiRequest(method, path, body) {
   const user = getCurrentUser();
-  const userId = user.id;
-  hydrateUberSessionFromDiskIfNeeded(userId);
-  const orders = store.ordersByUser.get(userId) || [];
-  const predictions = store.predictionsByUser.get(userId) || [];
+  const appUserId = user.id;
+  hydrateUberSessionFromDiskIfNeeded(appUserId);
+  const dataUserId = getDataScopeUserId();
+  const orders = store.ordersByUser.get(dataUserId) || [];
+  const predictions = store.predictionsByUser.get(dataUserId) || [];
 
   if (method === 'GET' && path === '/api/auth/session') {
-    const session = getUberSession(userId);
+    const session = getUberSession(appUserId);
     const uberConnected = Boolean(session);
     return {
-      user,
+      user: { ...user, id: dataUserId },
       sessionToken: session?.id || null,
       uberConnected,
       uberSession: {
         connected: uberConnected,
         lastImportedAt: session?.createdAt || null,
-        lastSyncAt: store.lastSyncByUser.get(userId) || null
+        lastSyncAt: store.lastSyncByUser.get(dataUserId) || null
       }
     };
   }
 
   if (method === 'GET' && path === '/api/uber/session/status') {
-    const session = getUberSession(userId);
+    const session = getUberSession(appUserId);
     return {
       connected: Boolean(session),
       lastImportedAt: session?.createdAt || null,
-      lastSyncAt: store.lastSyncByUser.get(userId) || null
+      lastSyncAt: store.lastSyncByUser.get(dataUserId) || null
     };
   }
 
@@ -560,10 +652,10 @@ async function handleApiRequest(method, path, body) {
       csrfToken: resolvedCsrf || null,
       createdAt: new Date().toISOString()
     };
-    store.uberSessions.set(userId, session);
+    store.uberSessions.set(appUserId, session);
     sessionPersistence.write(session);
     try {
-      await loadUberEatsUserForUserId(userId);
+      await loadUberEatsUserForUserId(appUserId);
     } catch (err) {
       console.error('[uber] getUserV1 after import failed', err);
     }
@@ -571,17 +663,20 @@ async function handleApiRequest(method, path, body) {
   }
 
   if (method === 'DELETE' && path === '/api/uber/session') {
-    store.uberSessions.delete(userId);
-    store.uberEatsUserByUserId.delete(userId);
-    const localUser = store.users.get(userId);
+    const scopeToClear = getDataScopeUserId();
+    store.uberSessions.delete(appUserId);
+    store.uberEatsUserByUserId.delete(appUserId);
+    const localUser = store.users.get(appUserId);
     if (localUser) {
-      store.users.set(userId, { ...localUser, pictureUrl: null });
+      store.users.set(appUserId, { ...localUser, pictureUrl: null });
     }
-    store.ordersByUser.delete(userId);
-    store.predictionsByUser.delete(userId);
-    store.lastSyncByUser.delete(userId);
+    store.ordersByUser.delete(scopeToClear);
+    store.predictionsByUser.delete(scopeToClear);
+    store.lastSyncByUser.delete(scopeToClear);
     try {
-      ordersPersistence.clearOrdersForUser(userId);
+      ordersPersistence.clearOrdersForUser(scopeToClear);
+      predictionsPersistence.clearPredictionsForUser(scopeToClear);
+      ordersPersistence.clearPersistedDataScopeUserId();
     } catch (err) {
       console.error('[orders-persistence] Failed to clear orders', err);
     }
@@ -590,7 +685,7 @@ async function handleApiRequest(method, path, body) {
   }
 
   if (method === 'POST' && path === '/api/orders/sync') {
-    return executeOrderSyncWithProgress(userId, () => {});
+    return executeOrderSyncWithProgress(appUserId, dataUserId, () => {});
   }
 
   if (method === 'GET' && path === '/api/orders') return { orders };
@@ -617,22 +712,30 @@ async function handleApiRequest(method, path, body) {
 
   if (method === 'GET' && path === '/api/users/dashboard') {
     const stats = buildOrderStats(orders);
+    const uberConnected = Boolean(getUberSession(appUserId));
+    const recentPredictions = uberConnected ? predictions.slice(0, 10) : [];
+    const recommendationStats = uberConnected
+      ? {
+          total_predictions: predictions.length,
+          correct_predictions: predictions.filter((p) => p.is_correct).length
+        }
+      : { total_predictions: 0, correct_predictions: 0 };
     return {
       recentOrders: orders.slice(0, 10),
-      recentPredictions: predictions.slice(0, 10),
+      recentPredictions,
       stats: {
         total_orders: stats.total_orders,
-        total_predictions: predictions.length,
-        correct_predictions: predictions.filter((p) => p.is_correct).length,
+        total_predictions: recommendationStats.total_predictions,
+        correct_predictions: recommendationStats.correct_predictions,
         total_spent: stats.total_spent
       }
     };
   }
 
   if (method === 'GET' && path === '/api/users/profile') {
-    const uber = store.uberEatsUserByUserId.get(userId) || null;
+    const uber = store.uberEatsUserByUserId.get(appUserId) || null;
     return {
-      user,
+      user: { ...user, id: dataUserId },
       uberEatsUser: uber ? { data: uber.data, fetchedAt: uber.fetchedAt } : null
     };
   }
@@ -643,41 +746,56 @@ async function handleApiRequest(method, path, body) {
       firstName: body?.firstName || user.firstName,
       lastName: body?.lastName || user.lastName
     };
-    store.users.set(userId, nextUser);
-    return { user: nextUser };
+    store.users.set(appUserId, nextUser);
+    return { user: { ...nextUser, id: dataUserId } };
   }
 
   if (method === 'DELETE' && path === '/api/users/account') {
-    store.users.set(userId, {
+    const scopeToClear = getDataScopeUserId();
+    store.users.set(appUserId, {
       ...user,
       firstName: '',
       lastName: '',
       email: '',
       pictureUrl: null
     });
-    store.uberSessions.delete(userId);
-    store.uberEatsUserByUserId.delete(userId);
-    store.ordersByUser.delete(userId);
-    store.predictionsByUser.delete(userId);
-    store.lastSyncByUser.delete(userId);
+    store.uberSessions.delete(appUserId);
+    store.uberEatsUserByUserId.delete(appUserId);
+    store.ordersByUser.delete(scopeToClear);
+    store.predictionsByUser.delete(scopeToClear);
+    store.lastSyncByUser.delete(scopeToClear);
     try {
-      ordersPersistence.clearOrdersForUser(userId);
+      ordersPersistence.clearOrdersForUser(scopeToClear);
     } catch (err) {
       console.error('[orders-persistence] Failed to clear orders', err);
     }
     try {
-      predictionsPersistence.clearPredictionsForUser(userId);
+      predictionsPersistence.clearPredictionsForUser(scopeToClear);
     } catch (err) {
       console.error('[predictions-persistence] Failed to clear predictions', err);
+    }
+    try {
+      ordersPersistence.clearPersistedDataScopeUserId();
+    } catch (err) {
+      console.error('[orders-persistence] Failed to clear data scope', err);
     }
     sessionPersistence.clear();
     return { message: 'Account data cleared' };
   }
 
-  if (method === 'GET' && path === '/api/predictions') return { predictions };
-  if (method === 'GET' && path === '/api/predictions/accuracy') return { accuracy: calculatePredictionAccuracy(predictions) };
+  if (method === 'GET' && path === '/api/predictions') {
+    return { predictions: getUberSession(appUserId) ? predictions : [] };
+  }
+  if (method === 'GET' && path === '/api/predictions/accuracy') {
+    return {
+      accuracy: getUberSession(appUserId)
+        ? calculatePredictionAccuracy(predictions)
+        : { total_predictions: 0, correct_predictions: 0, accuracy_percentage: 0 }
+    };
+  }
 
   if (method === 'DELETE' && path.startsWith('/api/predictions/')) {
+    if (!getUberSession(appUserId)) throw error(401, 'Connect UberEats session first');
     const reservedIds = new Set(['accuracy']);
     const prefix = '/api/predictions/';
     const predictionId = decodeURIComponent(path.slice(prefix.length));
@@ -687,9 +805,9 @@ async function handleApiRequest(method, path, body) {
     const exists = predictions.some((p) => p.id === predictionId);
     if (!exists) throw error(404, 'Prediction not found');
     const next = predictions.filter((p) => p.id !== predictionId);
-    store.predictionsByUser.set(userId, next);
+    store.predictionsByUser.set(dataUserId, next);
     try {
-      predictionsPersistence.deletePrediction(userId, predictionId);
+      predictionsPersistence.deletePrediction(dataUserId, predictionId);
     } catch (err) {
       console.error('[predictions-persistence] Failed to delete prediction', err);
     }
@@ -697,6 +815,7 @@ async function handleApiRequest(method, path, body) {
   }
 
   if (method === 'POST' && path === '/api/predictions/generate') {
+    if (!getUberSession(appUserId)) throw error(401, 'Connect UberEats session first');
     if (orders.length === 0) throw error(400, 'Sync orders before generating predictions');
     const dayOfWeek = body?.dayOfWeek ?? new Date().getDay();
     const timeOfDay = body?.timeOfDay || 'lunch';
@@ -727,9 +846,9 @@ async function handleApiRequest(method, path, body) {
       time_of_day: timeOfDay,
       created_at: llmResult.created_at
     };
-    store.predictionsByUser.set(userId, [prediction, ...predictions]);
+    store.predictionsByUser.set(dataUserId, [prediction, ...predictions]);
     try {
-      predictionsPersistence.savePrediction(userId, prediction);
+      predictionsPersistence.savePrediction(dataUserId, prediction);
     } catch (err) {
       console.error('[predictions-persistence] Failed to save prediction', err);
     }
@@ -737,6 +856,7 @@ async function handleApiRequest(method, path, body) {
   }
 
   if (method === 'POST' && path === '/api/predictions/revise') {
+    if (!getUberSession(appUserId)) throw error(401, 'Connect UberEats session first');
     if (orders.length === 0) throw error(400, 'Sync orders before generating predictions');
     const parentId = body?.predictionId;
     if (!parentId) throw error(400, 'predictionId is required');
@@ -773,9 +893,9 @@ async function handleApiRequest(method, path, body) {
       created_at: llmResult.created_at,
       revision_of: parentId
     };
-    store.predictionsByUser.set(userId, [prediction, ...predictions]);
+    store.predictionsByUser.set(dataUserId, [prediction, ...predictions]);
     try {
-      predictionsPersistence.savePrediction(userId, prediction);
+      predictionsPersistence.savePrediction(dataUserId, prediction);
     } catch (err) {
       console.error('[predictions-persistence] Failed to save prediction', err);
     }
@@ -783,13 +903,14 @@ async function handleApiRequest(method, path, body) {
   }
 
   if (method === 'POST' && path === '/api/predictions/feedback') {
+    if (!getUberSession(appUserId)) throw error(401, 'Connect UberEats session first');
     const isCorrect = Boolean(body?.isCorrect);
     const updated = predictions.map((prediction) =>
       prediction.id === body?.predictionId ? { ...prediction, is_correct: isCorrect } : prediction
     );
-    store.predictionsByUser.set(userId, updated);
+    store.predictionsByUser.set(dataUserId, updated);
     try {
-      predictionsPersistence.updateFeedback(userId, body?.predictionId, isCorrect);
+      predictionsPersistence.updateFeedback(dataUserId, body?.predictionId, isCorrect);
     } catch (err) {
       console.error('[predictions-persistence] Failed to update feedback', err);
     }
@@ -803,16 +924,16 @@ async function handleApiRequest(method, path, body) {
   throw error(404, `No desktop service route for ${method} ${path}`);
 }
 
-async function executeOrderSyncWithProgress(userId, onProgress) {
-  const session = getUberSession(userId);
+async function executeOrderSyncWithProgress(sessionUserId, dataUserId, onProgress) {
+  const session = getUberSession(sessionUserId);
   if (!session) throw error(401, 'Connect UberEats session first');
 
   const { normalizedOrders, pages, syncedAt } = await runFullOrderSync(session, onProgress);
-  store.ordersByUser.set(userId, normalizedOrders);
-  store.lastSyncByUser.set(userId, syncedAt);
+  store.ordersByUser.set(dataUserId, normalizedOrders);
+  store.lastSyncByUser.set(dataUserId, syncedAt);
   try {
-    ordersPersistence.replaceOrdersForUser(userId, normalizedOrders);
-    ordersPersistence.setLastSyncAt(userId, syncedAt);
+    ordersPersistence.replaceOrdersForUser(dataUserId, normalizedOrders);
+    ordersPersistence.setLastSyncAt(dataUserId, syncedAt);
   } catch (err) {
     console.error('[orders-persistence] Failed to save orders', err);
   }
@@ -827,19 +948,24 @@ async function executeOrderSyncWithProgress(userId, onProgress) {
 
 async function executeOrderSyncWithProgressForDefaultUser(onProgress) {
   const user = getCurrentUser();
-  return executeOrderSyncWithProgress(user.id, onProgress);
+  return executeOrderSyncWithProgress(user.id, getDataScopeUserId(), onProgress);
 }
 
 function bootstrapPersistedOrders() {
-  const userId = APP_USER_ID;
+  let scope = APP_USER_ID;
   try {
-    const orders = ordersPersistence.loadOrdersForUser(userId);
-    const lastSync = ordersPersistence.getLastSyncAt(userId);
+    scope = ordersPersistence.getPersistedDataScopeUserId() || APP_USER_ID;
+  } catch (_) {
+    /* ignore */
+  }
+  try {
+    const orders = ordersPersistence.loadOrdersForUser(scope);
+    const lastSync = ordersPersistence.getLastSyncAt(scope);
     if (orders.length > 0) {
-      store.ordersByUser.set(userId, orders);
+      store.ordersByUser.set(scope, orders);
     }
     if (lastSync) {
-      store.lastSyncByUser.set(userId, lastSync);
+      store.lastSyncByUser.set(scope, lastSync);
     }
   } catch (err) {
     console.error('[orders-persistence] Failed to load orders from disk', err);
@@ -847,11 +973,16 @@ function bootstrapPersistedOrders() {
 }
 
 function bootstrapPersistedPredictions() {
-  const userId = APP_USER_ID;
+  let scope = APP_USER_ID;
   try {
-    const predictions = predictionsPersistence.loadPredictionsForUser(userId);
+    scope = ordersPersistence.getPersistedDataScopeUserId() || APP_USER_ID;
+  } catch (_) {
+    /* ignore */
+  }
+  try {
+    const predictions = predictionsPersistence.loadPredictionsForUser(scope);
     if (predictions.length > 0) {
-      store.predictionsByUser.set(userId, predictions);
+      store.predictionsByUser.set(scope, predictions);
     }
   } catch (err) {
     console.error('[predictions-persistence] Failed to load predictions from disk', err);
@@ -879,24 +1010,25 @@ async function loadUberEatsUserOnStartup() {
 }
 
 async function refreshOrdersFromUberOnStartup() {
-  const userId = APP_USER_ID;
-  const session = getUberSession(userId);
+  const sessionUserId = APP_USER_ID;
+  const dataUserId = getDataScopeUserId();
+  const session = getUberSession(sessionUserId);
   if (!session) {
     return { updated: false, newCount: 0 };
   }
   try {
-    const { merged, pages, newCount, syncedAt } = await runIncrementalOrderSync(session, userId, () => {});
+    const { merged, pages, newCount, syncedAt } = await runIncrementalOrderSync(session, dataUserId, () => {});
     if (newCount === 0) {
       return { updated: false, newCount: 0, pages };
     }
-    store.ordersByUser.set(userId, merged);
+    store.ordersByUser.set(dataUserId, merged);
     if (syncedAt) {
-      store.lastSyncByUser.set(userId, syncedAt);
+      store.lastSyncByUser.set(dataUserId, syncedAt);
     }
     try {
-      ordersPersistence.replaceOrdersForUser(userId, merged);
+      ordersPersistence.replaceOrdersForUser(dataUserId, merged);
       if (syncedAt) {
-        ordersPersistence.setLastSyncAt(userId, syncedAt);
+        ordersPersistence.setLastSyncAt(dataUserId, syncedAt);
       }
     } catch (err) {
       console.error('[orders-persistence] Failed to save orders after incremental refresh', err);

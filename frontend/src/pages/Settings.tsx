@@ -82,7 +82,7 @@ export default function Settings() {
                   key={option.value}
                   type="button"
                   onClick={() => setMode(option.value)}
-                  className={`rounded-lg border px-3 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
+                  className={`cursor-pointer rounded-lg border px-3 py-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 ${
                     mode === option.value
                       ? 'border-primary-500 bg-primary-50 text-primary-800'
                       : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
@@ -170,14 +170,14 @@ export default function Settings() {
               <button
                 onClick={() => connectUberMutation.mutate(cookieHeader)}
                 disabled={!cookieHeader.trim() || connectUberMutation.isLoading}
-                className="px-3 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-60"
+                className="cursor-pointer rounded-lg bg-primary-600 px-3 py-2 text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {connectUberMutation.isLoading ? 'Connecting...' : 'Connect Session'}
               </button>
               <button
                 onClick={() => disconnectUberMutation.mutate()}
                 disabled={disconnectUberMutation.isLoading || !uberSession?.connected}
-                className="px-3 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-60"
+                className="cursor-pointer rounded-lg bg-gray-200 px-3 py-2 text-gray-800 transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Disconnect
               </button>
