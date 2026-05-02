@@ -2,6 +2,7 @@
   "name": "ai-food-order",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@10.33.0",
   "description": "AI Food Order desktop shell",
   "main": "electron/main.js",
   "scripts": {

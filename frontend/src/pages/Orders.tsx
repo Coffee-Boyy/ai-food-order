@@ -16,6 +16,7 @@ import {
   ChevronUpDownIcon
 } from '@heroicons/react/24/outline'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '../components/ui/table'
 import toast from 'react-hot-toast'
 
 interface Order {
@@ -496,7 +497,7 @@ export default function Orders() {
     <button
       type="button"
       onClick={() => handleOrdersSort(field)}
-      className={`group inline-flex items-center gap-1 font-medium text-gray-700 hover:text-gray-900 ${className}`}
+      className={`group inline-flex items-center gap-1 font-medium text-gray-700 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white ${className}`}
     >
       <span>{label}</span>
       {sortField === field ? (
@@ -507,7 +508,7 @@ export default function Orders() {
         )
       ) : (
         <ChevronUpDownIcon
-          className="h-4 w-4 shrink-0 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100"
+          className="h-4 w-4 shrink-0 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100 dark:text-gray-600"
           aria-hidden
         />
       )}
@@ -889,53 +890,57 @@ export default function Orders() {
             </label>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-sm dark:border-white/[0.05] dark:bg-white/[0.03]">
             {filteredSortedOrders.length === 0 ? (
-              <p className="p-8 text-center text-gray-500">
+              <p className="p-8 text-center text-theme-sm text-gray-500 dark:text-gray-400">
                 No orders match your filter. Try a different search.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th
+              <div className="max-w-full overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableCell
+                        isHeader
                         scope="col"
-                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600"
+                        className="px-5 py-3 text-start font-medium text-theme-xs text-gray-500 dark:text-gray-400"
                       >
                         <SortHeaderButton field="restaurant" label="Restaurant" className="justify-start" />
-                      </th>
-                      <th
+                      </TableCell>
+                      <TableCell
+                        isHeader
                         scope="col"
-                        className="hidden min-w-[12rem] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600 md:table-cell"
+                        className="hidden min-w-[12rem] px-5 py-3 text-start font-medium text-theme-xs text-gray-500 md:table-cell dark:text-gray-400"
                       >
                         Items
-                      </th>
-                      <th
+                      </TableCell>
+                      <TableCell
+                        isHeader
                         scope="col"
-                        className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600"
+                        className="px-5 py-3 text-end font-medium text-theme-xs text-gray-500 dark:text-gray-400"
                       >
                         <span className="inline-flex w-full justify-end">
                           <SortHeaderButton field="total" label="Total" className="justify-end" />
                         </span>
-                      </th>
-                      <th
+                      </TableCell>
+                      <TableCell
+                        isHeader
                         scope="col"
-                        className="hidden px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-600 sm:table-cell"
+                        className="hidden px-5 py-3 text-end font-medium text-theme-xs text-gray-500 sm:table-cell dark:text-gray-400"
                       >
                         <span className="inline-flex w-full justify-end">
                           <SortHeaderButton field="date" label="Date" className="justify-end" />
                         </span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 bg-white">
+                      </TableCell>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {paginatedOrders.map((order, rowIdx) => {
                       const absIdx = (ordersPage - 1) * ordersPageSize + rowIdx
                       return (
-                        <tr
+                        <TableRow
                           key={getOrderRowKey(order, absIdx)}
-                          className="cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50"
+                          className="cursor-pointer transition-colors hover:bg-gray-50 focus-within:bg-gray-50 dark:hover:bg-white/[0.02] dark:focus-within:bg-white/[0.02]"
                           onClick={() => setDetailOrder(order)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
@@ -947,50 +952,50 @@ export default function Orders() {
                           role="button"
                           aria-label={`View details for order from ${getRestaurantName(order)}`}
                         >
-                          <td className="px-4 py-3">
+                          <TableCell className="px-5 py-4 text-start sm:px-6">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-                                <ShoppingBagIcon className="h-4 w-4 text-gray-600" aria-hidden />
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                                <ShoppingBagIcon className="h-4 w-4 text-gray-600 dark:text-gray-400" aria-hidden />
                               </div>
-                              <span className="font-medium text-gray-900">
+                              <span className="font-medium text-theme-sm text-gray-800 dark:text-white/90">
                                 {getRestaurantName(order)}
                               </span>
                             </div>
-                            <p className="mt-1 max-w-[220px] truncate text-sm text-gray-500 md:hidden">
+                            <p className="mt-1 max-w-[220px] truncate text-theme-sm text-gray-500 md:hidden dark:text-gray-400">
                               {getOrderItemsSummary(order)}
                             </p>
-                            <p className="mt-1 text-xs text-gray-400 sm:hidden">
+                            <p className="mt-1 text-theme-xs text-gray-400 sm:hidden dark:text-gray-500">
                               {formatDate(getOrderTime(order))}
                             </p>
-                          </td>
-                          <td className="hidden max-w-md px-4 py-3 text-sm text-gray-600 md:table-cell">
+                          </TableCell>
+                          <TableCell className="hidden max-w-md px-5 py-4 text-start text-theme-sm text-gray-500 md:table-cell dark:text-gray-400">
                             <span className="line-clamp-2" title={getOrderItemsSummary(order)}>
                               {getOrderItemsSummary(order)}
                             </span>
-                          </td>
-                          <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-semibold text-gray-900">
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap px-5 py-4 text-end text-theme-sm font-semibold text-gray-800 dark:text-white/90">
                             {formatCurrency(getDisplayOrderTotal(order))}
-                          </td>
-                          <td className="hidden whitespace-nowrap px-4 py-3 text-right text-sm text-gray-600 sm:table-cell">
+                          </TableCell>
+                          <TableCell className="hidden whitespace-nowrap px-5 py-4 text-end text-theme-sm text-gray-500 sm:table-cell dark:text-gray-400">
                             {formatDate(getOrderTime(order))}
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )
                     })}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             )}
           </div>
 
           {filteredSortedOrders.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-gray-600">
-                Showing <span className="font-medium text-gray-900">{ordersRangeStart}</span>–
-                <span className="font-medium text-gray-900">{ordersRangeEnd}</span> of{' '}
-                <span className="font-medium text-gray-900">{filteredSortedOrders.length}</span>
+            <div className="flex flex-col gap-3 border-t border-gray-200 pt-4 dark:border-white/[0.05] sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-theme-sm text-gray-600 dark:text-gray-400">
+                Showing <span className="font-medium text-gray-900 dark:text-white/90">{ordersRangeStart}</span>–
+                <span className="font-medium text-gray-900 dark:text-white/90">{ordersRangeEnd}</span> of{' '}
+                <span className="font-medium text-gray-900 dark:text-white/90">{filteredSortedOrders.length}</span>
                 {ordersFilter.trim() ? (
-                  <span className="text-gray-500"> (of {ordersData.length} loaded)</span>
+                  <span className="text-gray-500 dark:text-gray-500"> (of {ordersData.length} loaded)</span>
                 ) : null}
               </p>
               <div className="flex flex-wrap items-center gap-2">
@@ -998,18 +1003,18 @@ export default function Orders() {
                   type="button"
                   onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
                   disabled={ordersPage <= 1}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
                   Previous
                 </button>
-                <span className="px-2 text-sm text-gray-600">
+                <span className="px-2 text-theme-sm text-gray-600 dark:text-gray-400">
                   Page {ordersPage} of {ordersTotalPages}
                 </span>
                 <button
                   type="button"
                   onClick={() => setOrdersPage((p) => Math.min(ordersTotalPages, p + 1))}
                   disabled={ordersPage >= ordersTotalPages}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                 >
                   Next
                 </button>

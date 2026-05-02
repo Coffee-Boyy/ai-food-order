@@ -1,7 +1,7 @@
 import { useQuery } from 'react-query'
 import { apiClient } from '../lib/apiClient'
 import { StarIcon } from '@heroicons/react/24/solid'
-import { StarIcon as StarOutlineIcon, BuildingStorefrontIcon } from '@heroicons/react/24/outline'
+import { StarIcon as StarOutlineIcon, BuildingStorefrontIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import LoadingSpinner from './LoadingSpinner'
 
 interface Restaurant {
@@ -31,7 +31,8 @@ interface FeedData {
   count: number
 }
 
-export default function RestaurantFeed() {
+/** When true, hides the large title block so the feed can sit inside a TailAdmin `ComponentCard` shell. */
+export default function RestaurantFeed({ embedded = false }: { embedded?: boolean }) {
   const { data: feedData, isLoading, error, refetch } = useQuery<FeedData>(
     ['restaurant-feed'],
     async () => {
@@ -45,7 +46,7 @@ export default function RestaurantFeed() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex h-64 items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
     )
@@ -53,13 +54,14 @@ export default function RestaurantFeed() {
 
   if (error) {
     return (
-      <div className="text-center py-12">
-        <p className="text-red-600 mb-4">Failed to load restaurant feed</p>
+      <div className="py-12 text-center">
+        <p className="mb-4 text-theme-sm text-error-600 dark:text-error-400">Failed to load restaurant feed</p>
         <button
+          type="button"
           onClick={() => refetch()}
-          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          className="btn-primary rounded-lg px-4 py-2 text-theme-sm"
         >
-          Try Again
+          Try again
         </button>
       </div>
     )
@@ -67,20 +69,22 @@ export default function RestaurantFeed() {
 
   if (!feedData?.restaurants?.length) {
     return (
-      <div className="text-center py-12">
-        <div className="max-w-md mx-auto">
-          <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
-            <BuildingStorefrontIcon className="h-8 w-8 text-gray-400" />
+      <div className="py-12 text-center">
+        <div className="mx-auto max-w-md">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+            <BuildingStorefrontIcon className="h-8 w-8 text-gray-400 dark:text-gray-500" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Restaurants Available</h3>
-          <p className="text-gray-500 mb-4">
-            {feedData?.feed?.feedItems?.[0]?.subtitle || "Sorry, there's nothing available at your delivery address"}
+          <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-white/90">No restaurants available</h3>
+          <p className="mb-4 text-theme-sm text-gray-500 dark:text-gray-400">
+            {feedData?.feed?.feedItems?.[0]?.subtitle ||
+              "Sorry, there's nothing available at your delivery address"}
           </p>
           <button
+            type="button"
             onClick={() => refetch()}
-            className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            className="btn-primary rounded-lg px-4 py-2 text-theme-sm"
           >
-            Try Again
+            Try again
           </button>
         </div>
       </div>
@@ -93,22 +97,16 @@ export default function RestaurantFeed() {
     const hasHalfStar = rating % 1 !== 0
 
     for (let i = 0; i < fullStars; i++) {
-      stars.push(
-        <StarIcon key={i} className="h-4 w-4 text-yellow-400" />
-      )
+      stars.push(<StarIcon key={i} className="h-4 w-4 text-yellow-400" />)
     }
 
     if (hasHalfStar) {
-      stars.push(
-        <StarIcon key="half" className="h-4 w-4 text-yellow-400" />
-      )
+      stars.push(<StarIcon key="half" className="h-4 w-4 text-yellow-400" />)
     }
 
     const remainingStars = 5 - Math.ceil(rating)
     for (let i = 0; i < remainingStars; i++) {
-      stars.push(
-        <StarOutlineIcon key={`empty-${i}`} className="h-4 w-4 text-gray-300" />
-      )
+      stars.push(<StarOutlineIcon key={`empty-${i}`} className="h-4 w-4 text-gray-300 dark:text-gray-600" />)
     }
 
     return stars
@@ -116,36 +114,49 @@ export default function RestaurantFeed() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Restaurant Feed</h2>
-          <p className="text-sm text-gray-500">
+      {embedded ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-theme-sm text-gray-500 dark:text-gray-400">
             {feedData.count} restaurants available
           </p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm font-medium text-gray-700 shadow-theme-xs transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+          >
+            <ArrowPathIcon className="h-4 w-4 shrink-0" aria-hidden />
+            Refresh
+          </button>
         </div>
-        <button
-          onClick={() => refetch()}
-          className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-        >
-          Refresh
-        </button>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white/90">Restaurant Feed</h2>
+            <p className="text-theme-sm text-gray-500 dark:text-gray-400">{feedData.count} restaurants available</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2 text-theme-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+          >
+            <ArrowPathIcon className="h-4 w-4 shrink-0" aria-hidden />
+            Refresh
+          </button>
+        </div>
+      )}
 
-      {/* Restaurant Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {feedData.restaurants.map((restaurant) => (
           <div
             key={restaurant.uuid}
-            className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
+            className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-sm transition-shadow duration-200 hover:shadow-theme-md dark:border-gray-800 dark:bg-white/[0.03]"
           >
-            {/* Restaurant Image */}
             {restaurant.image?.url && (
-              <div className="h-48 bg-gray-200 relative">
+              <div className="relative h-48 bg-gray-200 dark:bg-gray-800">
                 <img
                   src={restaurant.image.url}
                   alt={restaurant.title}
-                  className="w-full h-full object-cover"
+                  className="h-full w-full object-cover"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none'
                   }}
@@ -153,37 +164,32 @@ export default function RestaurantFeed() {
               </div>
             )}
 
-            {/* Restaurant Info */}
             <div className="p-4">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-semibold text-gray-900 text-lg truncate">
-                  {restaurant.title}
-                </h3>
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <h3 className="truncate text-lg font-semibold text-gray-900 dark:text-white/90">{restaurant.title}</h3>
                 {restaurant.rating?.value && (
-                  <div className="flex items-center space-x-1">
+                  <div className="flex shrink-0 items-center space-x-1">
                     {renderStars(restaurant.rating.value)}
-                    <span className="text-sm text-gray-600 ml-1">
+                    <span className="ml-1 text-theme-sm text-gray-600 dark:text-gray-400">
                       {restaurant.rating.value.toFixed(1)}
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Meta information (cuisine, etc.) */}
               {restaurant.meta && restaurant.meta.length > 0 && (
-                <p className="text-sm text-gray-600 mb-3">
-                  {restaurant.meta.map(item => item.text).filter(Boolean).join(' • ')}
+                <p className="mb-3 text-theme-sm text-gray-600 dark:text-gray-400">
+                  {restaurant.meta.map((item) => item.text).filter(Boolean).join(' • ')}
                 </p>
               )}
 
-              {/* Restaurant Details */}
               <div className="space-y-2">
                 {restaurant.signposts && restaurant.signposts.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {restaurant.signposts.slice(0, 3).map((signpost, idx) => (
                       <span
                         key={idx}
-                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                        className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800 dark:bg-gray-800 dark:text-gray-300"
                       >
                         {signpost.text}
                       </span>
@@ -192,9 +198,11 @@ export default function RestaurantFeed() {
                 )}
               </div>
 
-              {/* Action Button */}
-              <button className="w-full mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors duration-200">
-                View Menu
+              <button
+                type="button"
+                className="btn-primary mt-4 w-full rounded-lg px-4 py-2 text-theme-sm font-medium"
+              >
+                View menu
               </button>
             </div>
           </div>
