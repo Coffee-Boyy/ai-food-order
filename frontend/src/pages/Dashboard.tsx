@@ -8,7 +8,9 @@ import {
   CurrencyDollarIcon,
   SparklesIcon,
   HandThumbUpIcon,
-  HandThumbDownIcon
+  HandThumbDownIcon,
+  ArrowPathIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 import LoadingSpinner from '../components/LoadingSpinner'
 import RestaurantFeed from '../components/RestaurantFeed'
@@ -29,6 +31,7 @@ interface DashboardData {
     order_time: string
     time_of_day: string
   }>
+  /** Recent AI recommendations (API field name unchanged). */
   recentPredictions: Array<{
     id: string
     predicted_restaurant: string
@@ -36,6 +39,7 @@ interface DashboardData {
     confidence_score: number
     created_at: string
     is_correct?: boolean
+    revision_of?: string
   }>
   stats: {
     total_orders: number
@@ -50,17 +54,17 @@ export default function Dashboard() {
   const queryClient = useQueryClient()
 
   const feedbackMutation = useMutation(
-    async ({ predictionId, isCorrect }: { predictionId: string; isCorrect: boolean }) => {
+    async ({ recommendationId, isCorrect }: { recommendationId: string; isCorrect: boolean }) => {
       await apiClient.post('/api/predictions/feedback', {
-        predictionId,
+        predictionId: recommendationId,
         isCorrect
       })
     },
     {
       onSuccess: () => {
         toast.success('Feedback submitted!')
-        queryClient.invalidateQueries(['predictions'])
-        queryClient.invalidateQueries(['predictionAccuracy'])
+        queryClient.invalidateQueries(['recommendations'])
+        queryClient.invalidateQueries(['recommendationAccuracy'])
         queryClient.invalidateQueries(['dashboard'])
       },
       onError: () => {
@@ -69,9 +73,53 @@ export default function Dashboard() {
     }
   )
 
-  const handlePredictionFeedback = (predictionId: string, isCorrect: boolean) => {
-    feedbackMutation.mutate({ predictionId, isCorrect })
+  const handleRecommendationFeedback = (recommendationId: string, isCorrect: boolean) => {
+    feedbackMutation.mutate({ recommendationId, isCorrect })
   }
+
+  const reviseMutation = useMutation(
+    async (recommendationId: string) => {
+      return apiClient.post('/api/predictions/revise', { predictionId: recommendationId })
+    },
+    {
+      onSuccess: () => {
+        toast.success('New recommendation generated!')
+        queryClient.invalidateQueries(['recommendations'])
+        queryClient.invalidateQueries(['recommendationAccuracy'])
+        queryClient.invalidateQueries(['dashboard'])
+      },
+      onError: () => {
+        toast.error('Failed to generate a new recommendation')
+      }
+    }
+  )
+
+  const deleteMutation = useMutation(
+    async (recommendationId: string) => {
+      return apiClient.delete<{ success: boolean }>(
+        `/api/predictions/${encodeURIComponent(recommendationId)}`
+      )
+    },
+    {
+      onSuccess: () => {
+        toast.success('Recommendation removed')
+        queryClient.invalidateQueries(['recommendations'])
+        queryClient.invalidateQueries(['recommendationAccuracy'])
+        queryClient.invalidateQueries(['dashboard'])
+      },
+      onError: () => {
+        toast.error('Failed to delete recommendation')
+      }
+    }
+  )
+
+  const handleDeleteRecommendation = (recommendationId: string) => {
+    if (!window.confirm('Delete this recommendation? This cannot be undone.')) return
+    deleteMutation.mutate(recommendationId)
+  }
+
+  const recommendationActionsPending =
+    feedbackMutation.isLoading || reviseMutation.isLoading || deleteMutation.isLoading
 
   const { data: dashboardData, isLoading, error } = useQuery<DashboardData>(
     ['dashboard'],
@@ -108,13 +156,13 @@ export default function Dashboard() {
       color: 'bg-blue-500'
     },
     {
-      name: 'Total Predictions',
+      name: 'Recommendations',
       value: formatInteger(dashboardData?.stats.total_predictions || 0),
       icon: ChartBarIcon,
       color: 'bg-green-500'
     },
     {
-      name: 'Correct Predictions',
+      name: 'Marked as Liked',
       value: formatInteger(dashboardData?.stats.correct_predictions || 0),
       icon: ChartBarIcon,
       color: 'bg-purple-500'
@@ -165,7 +213,7 @@ export default function Dashboard() {
             </h2>
             <Link
               to="/orders"
-              className="btn-primary inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm"
+              className="btn-primary inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-sm"
             >
               <ShoppingBagIcon className="h-4 w-4 shrink-0" />
               <span>View all Orders</span>
@@ -196,82 +244,108 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent Predictions */}
+        {/* Recent recommendations */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <h2 className="min-w-0 flex-1 text-lg font-semibold text-gray-900">
-              Recent Predictions
+              Recent Recommendations
             </h2>
             <Link
-              to="/predictions"
-              className="btn-primary inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm"
+              to="/recommendations"
+              className="btn-primary inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-1 text-sm"
             >
               <SparklesIcon className="h-4 w-4 shrink-0" />
-              <span>New Prediction</span>
+              <span>New Recommendation</span>
             </Link>
           </div>
 
           <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
             {dashboardData?.recentPredictions.length ? (
-              dashboardData.recentPredictions.map((prediction, index) => (
+              dashboardData.recentPredictions.map((recommendation, index) => (
                 <div
-                  key={prediction.id || index}
+                  key={recommendation.id || index}
                   className="rounded-lg bg-gray-50 p-2"
                 >
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <p className="min-w-0 truncate font-medium text-gray-900">
-                      {prediction.predicted_restaurant}
-                    </p>
-                    <span className="shrink-0 text-sm text-gray-500">
-                      {(prediction.confidence_score * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    {prediction.predicted_items.slice(0, 2).join(', ')}
-                    {prediction.predicted_items.length > 2 && '...'}
+                  <p className="min-w-0 truncate font-medium leading-tight text-gray-900">
+                    {recommendation.predicted_restaurant}
                   </p>
+                  {recommendation.predicted_items.length > 0 && (
+                    <p className="mt-0.5 text-sm leading-snug text-gray-600">
+                      {recommendation.predicted_items.join(', ')}
+                    </p>
+                  )}
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs text-gray-500">
-                      {new Date(prediction.created_at).toLocaleDateString()}
+                      {new Date(recommendation.created_at).toLocaleDateString()}
                     </p>
-                    {prediction.id && prediction.is_correct === undefined && (
-                      <div className="flex shrink-0 items-center gap-1.5">
+                    {recommendation.id && (
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                         <button
                           type="button"
-                          onClick={() => handlePredictionFeedback(prediction.id, true)}
-                          disabled={feedbackMutation.isLoading}
-                          className="rounded-md border border-gray-200 p-1.5 text-green-600 transition-colors hover:border-green-300 hover:bg-green-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1 disabled:opacity-50"
-                          aria-label="Mark prediction as correct"
-                          title="Correct"
+                          onClick={() => reviseMutation.mutate(recommendation.id)}
+                          disabled={recommendationActionsPending}
+                          className="rounded-md border border-gray-200 p-1.5 text-gray-600 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 disabled:opacity-50"
+                          aria-label="Generate another recommendation"
+                          title="Generate another recommendation"
                         >
-                          <HandThumbUpIcon className="h-4 w-4" aria-hidden />
+                          <ArrowPathIcon
+                            className={`h-4 w-4 ${reviseMutation.isLoading && reviseMutation.variables === recommendation.id ? 'animate-spin' : ''}`}
+                            aria-hidden
+                          />
                         </button>
                         <button
                           type="button"
-                          onClick={() => handlePredictionFeedback(prediction.id, false)}
-                          disabled={feedbackMutation.isLoading}
-                          className="rounded-md border border-gray-200 p-1.5 text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 disabled:opacity-50"
-                          aria-label="Mark prediction as incorrect"
-                          title="Incorrect"
+                          onClick={() => handleDeleteRecommendation(recommendation.id)}
+                          disabled={recommendationActionsPending}
+                          className="rounded-md border border-gray-200 p-1.5 text-gray-600 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 disabled:opacity-50"
+                          aria-label="Delete recommendation"
+                          title="Delete recommendation"
                         >
-                          <HandThumbDownIcon className="h-4 w-4" aria-hidden />
+                          <TrashIcon
+                            className={`h-4 w-4 ${deleteMutation.isLoading && deleteMutation.variables === recommendation.id ? 'opacity-50' : ''}`}
+                            aria-hidden
+                          />
                         </button>
-                      </div>
-                    )}
-                    {prediction.is_correct !== undefined && (
-                      <div
-                        className={`flex shrink-0 items-center gap-1 ${prediction.is_correct ? 'text-green-600' : 'text-red-600'}`}
-                      >
-                        {prediction.is_correct ? (
+                        {recommendation.is_correct === undefined && (
                           <>
-                            <HandThumbUpIcon className="h-4 w-4 shrink-0" aria-hidden />
-                            <span className="text-xs">Marked as liked</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRecommendationFeedback(recommendation.id, true)}
+                              disabled={recommendationActionsPending}
+                              className="rounded-md border border-gray-200 p-1.5 text-green-600 transition-colors hover:border-green-300 hover:bg-green-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1 disabled:opacity-50"
+                              aria-label="Mark recommendation as helpful"
+                              title="Helpful"
+                            >
+                              <HandThumbUpIcon className="h-4 w-4" aria-hidden />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRecommendationFeedback(recommendation.id, false)}
+                              disabled={recommendationActionsPending}
+                              className="rounded-md border border-gray-200 p-1.5 text-red-600 transition-colors hover:border-red-300 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-1 disabled:opacity-50"
+                              aria-label="Mark recommendation as not helpful"
+                              title="Not helpful"
+                            >
+                              <HandThumbDownIcon className="h-4 w-4" aria-hidden />
+                            </button>
                           </>
-                        ) : (
-                          <>
-                            <HandThumbDownIcon className="h-4 w-4 shrink-0" aria-hidden />
-                            <span className="text-xs">Marked as not liked</span>
-                          </>
+                        )}
+                        {recommendation.is_correct !== undefined && (
+                          <div
+                            className={`flex items-center gap-1 ${recommendation.is_correct ? 'text-green-600' : 'text-red-600'}`}
+                          >
+                            {recommendation.is_correct ? (
+                              <>
+                                <HandThumbUpIcon className="h-4 w-4 shrink-0" aria-hidden />
+                                <span className="text-xs">Marked as helpful</span>
+                              </>
+                            ) : (
+                              <>
+                                <HandThumbDownIcon className="h-4 w-4 shrink-0" aria-hidden />
+                                <span className="text-xs">Marked as not helpful</span>
+                              </>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
@@ -279,7 +353,7 @@ export default function Dashboard() {
                 </div>
               ))
             ) : (
-              <p className="text-gray-500 text-center py-3">No recent predictions</p>
+              <p className="text-gray-500 text-center py-3">No recent recommendations</p>
             )}
           </div>
         </div>

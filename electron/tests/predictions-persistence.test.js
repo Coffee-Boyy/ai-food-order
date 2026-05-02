@@ -139,6 +139,21 @@ test('updateFeedback on unknown id is a no-op', () => {
   });
 });
 
+test('deletePrediction removes one row', () => {
+  persistence.savePrediction(USER, makePrediction('pred_to_delete'));
+  persistence.savePrediction(USER, makePrediction('pred_to_keep'));
+  persistence.deletePrediction(USER, 'pred_to_delete');
+  const loaded = persistence.loadPredictionsForUser(USER);
+  assert.strictEqual(loaded.some((p) => p.id === 'pred_to_delete'), false);
+  assert.strictEqual(loaded.some((p) => p.id === 'pred_to_keep'), true);
+});
+
+test('deletePrediction on unknown id does not throw', () => {
+  assert.doesNotThrow(() => {
+    persistence.deletePrediction(USER, 'totally_missing');
+  });
+});
+
 test('clearPredictionsForUser removes all predictions for user', () => {
   persistence.clearPredictionsForUser(USER);
   const loaded = persistence.loadPredictionsForUser(USER);

@@ -27,29 +27,37 @@ struct OrderSummary: Codable {
     let timeLabel: String
 }
 
+struct PreviousRecommendationContext: Codable {
+    let recommendedRestaurant: String
+    let recommendedItems: [String]
+    let reasoning: String?
+}
+
 struct PredictorRequest: Codable {
     let dayOfWeek: Int
     let timeOfDay: String
     let summary: OrderSummary
+    /// Prior AI outputs for this day/time slot, oldest first — model must not duplicate them.
+    let previousRecommendations: [PreviousRecommendationContext]?
 }
 
 // MARK: - LLM-guided output
 
 @Generable
-struct FoodPrediction {
-    @Guide(description: "Name of the restaurant the user is most likely to order from")
-    var predictedRestaurant: String
+struct FoodRecommendation {
+    @Guide(description: "Restaurant you recommend for this order, grounded in the user’s history")
+    var recommendedRestaurant: String
 
-    @Guide(description: "2–4 specific menu items the user is likely to order, based on their history")
-    var predictedItems: [String]
+    @Guide(description: "2–4 specific menu items to recommend from that restaurant, based on their history")
+    var recommendedItems: [String]
 
     @Guide(
-        description: "A confidence score from 0.0 to 1.0 reflecting how strongly the history supports this prediction",
+        description: "A confidence score from 0.0 to 1.0 reflecting how strongly the history supports this recommendation",
         .range(0.0...1.0)
     )
     var confidenceScore: Double
 
-    @Guide(description: "One sentence explaining why this prediction was chosen, referencing patterns in the data")
+    @Guide(description: "One sentence explaining why this recommendation fits the user, referencing patterns in the data")
     var reasoning: String
 }
 
@@ -57,8 +65,8 @@ struct FoodPrediction {
 
 struct PredictorSuccess: Codable {
     let ok: Bool
-    let predictedRestaurant: String
-    let predictedItems: [String]
+    let recommendedRestaurant: String
+    let recommendedItems: [String]
     let confidenceScore: Double
     let reasoning: String
     let source: String

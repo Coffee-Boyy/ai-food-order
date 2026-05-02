@@ -79,11 +79,11 @@ struct FoodPredictor {
 
         let session = LanguageModelSession(instructions: PromptBuilder.instructions)
 
-        let prediction: FoodPrediction
+        let recommendation: FoodRecommendation
         do {
-            let response = try await session.respond(to: prompt, generating: FoodPrediction.self)
-            fputs("[FoodPredictor] raw response: restaurant=\(response.content.predictedRestaurant) items=\(response.content.predictedItems) confidence=\(response.content.confidenceScore)\n", stderr)
-            prediction = response.content
+            let response = try await session.respond(to: prompt, generating: FoodRecommendation.self)
+            fputs("[FoodPredictor] raw response: restaurant=\(response.content.recommendedRestaurant) items=\(response.content.recommendedItems) confidence=\(response.content.confidenceScore)\n", stderr)
+            recommendation = response.content
         } catch let genError as LanguageModelSession.GenerationError {
             switch genError {
             case .exceededContextWindowSize:
@@ -91,7 +91,7 @@ struct FoodPredictor {
                     "The order history summary was too large for the model context window.")
             default:
                 exitWithError("generationFailed",
-                    "The model failed to generate a prediction: \(genError.localizedDescription)")
+                    "The model failed to generate a recommendation: \(genError.localizedDescription)")
             }
         } catch {
             exitWithError("generationFailed",
@@ -100,10 +100,10 @@ struct FoodPredictor {
 
         writeOutput(PredictorSuccess(
             ok: true,
-            predictedRestaurant: prediction.predictedRestaurant,
-            predictedItems: prediction.predictedItems,
-            confidenceScore: prediction.confidenceScore,
-            reasoning: prediction.reasoning,
+            recommendedRestaurant: recommendation.recommendedRestaurant,
+            recommendedItems: recommendation.recommendedItems,
+            confidenceScore: recommendation.confidenceScore,
+            reasoning: recommendation.reasoning,
             source: "apple-foundation-models"
         ))
     }

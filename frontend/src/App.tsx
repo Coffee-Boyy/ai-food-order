@@ -1,10 +1,10 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Feed from './pages/Feed'
 import Orders from './pages/Orders'
-import Predictions from './pages/Predictions'
+import Recommendations from './pages/Recommendations'
 import Analytics from './pages/Analytics'
 import Settings from './pages/Settings'
 import LoadingSpinner from './components/LoadingSpinner'
@@ -75,7 +75,8 @@ function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/feed" element={<Feed />} />
         <Route path="/orders" element={<Orders />} />
-        <Route path="/predictions" element={<Predictions />} />
+        <Route path="/recommendations" element={<Recommendations />} />
+        <Route path="/predictions" element={<Navigate to="/recommendations" replace />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>

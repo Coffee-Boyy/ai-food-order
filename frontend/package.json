@@ -1,7 +1,7 @@
 {
   "name": "ai-food-order-frontend",
   "version": "1.0.0",
-  "description": "Frontend for AI Food Order Prediction App",
+  "description": "Frontend for AI Food Order recommendation app",
   "private": true,
   "dependencies": {
     "@headlessui/react": "^1.7.17",

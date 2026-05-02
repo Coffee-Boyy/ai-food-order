@@ -99,6 +99,19 @@ function loadPredictionsForUser(userId) {
 }
 
 /**
+ * Delete a single prediction row for a user.
+ * @param {string} userId
+ * @param {string} predictionId
+ */
+function deletePrediction(userId, predictionId) {
+  init();
+  db.prepare('DELETE FROM predictions WHERE user_id = ? AND prediction_id = ?').run(
+    userId,
+    predictionId
+  );
+}
+
+/**
  * Delete all predictions for a user (used during account clear).
  * @param {string} userId
  */
@@ -113,6 +126,7 @@ module.exports = {
   close,
   savePrediction,
   updateFeedback,
+  deletePrediction,
   loadPredictionsForUser,
   clearPredictionsForUser
 };

@@ -65,7 +65,7 @@ export default function Settings() {
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
               <h3 className="font-medium text-gray-900">Email Notifications</h3>
-              <p className="text-sm text-gray-500">Receive updates about new features and predictions</p>
+              <p className="text-sm text-gray-500">Receive updates about new features and recommendations</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" className="sr-only peer" defaultChecked />
@@ -75,8 +75,8 @@ export default function Settings() {
 
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
-              <h3 className="font-medium text-gray-900">Prediction Reminders</h3>
-              <p className="text-sm text-gray-500">Get reminded about your predicted orders</p>
+              <h3 className="font-medium text-gray-900">Recommendation reminders</h3>
+              <p className="text-sm text-gray-500">Get reminded about suggested orders</p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input type="checkbox" className="sr-only peer" defaultChecked />

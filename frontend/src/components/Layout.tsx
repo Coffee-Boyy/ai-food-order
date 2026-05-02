@@ -18,7 +18,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Feed', href: '/feed', icon: BuildingStorefrontIcon },
   { name: 'Orders', href: '/orders', icon: ShoppingBagIcon },
-  { name: 'Predictions', href: '/predictions', icon: ChartBarIcon },
+  { name: 'Recommendations', href: '/recommendations', icon: ChartBarIcon },
   { name: 'Analytics', href: '/analytics', icon: ChartBarIcon },
   { name: 'Settings', href: '/settings', icon: CogIcon },
 ]

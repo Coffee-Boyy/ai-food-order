@@ -2,7 +2,7 @@
  * LLM Prediction Service
  *
  * Builds compact order-pattern summaries and calls the native Foundation Models
- * helper binary to generate on-device AI predictions.
+ * helper binary to generate on-device AI order recommendations.
  */
 
 const { spawn } = require('child_process');
@@ -242,12 +242,17 @@ function invokeHelper(request) {
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Generates an AI-powered food prediction using the on-device Foundation Models
+ * Generates an AI-powered food order recommendation using the on-device Foundation Models
  * helper.  Sends only compact pattern summaries — no raw order payloads.
  *
  * @param {object[]} orders     Normalized orders array
  * @param {number}   dayOfWeek  0–6
  * @param {string}   timeOfDay  'breakfast' | 'lunch' | 'dinner' | 'late_night'
+ * @param {object[]|null} [previousPredictions]  Prior suggestions for this day/time (oldest first).
+ *   When non-empty, the model must avoid repeating any of these restaurants/item sets.
+ * @param {string} previousPredictions[].predicted_restaurant
+ * @param {string[]} previousPredictions[].predicted_items
+ * @param {string} [previousPredictions[].reasoning]
  * @returns {Promise<{
  *   predicted_restaurant: string,
  *   predicted_items: string[],
@@ -259,14 +264,21 @@ function invokeHelper(request) {
  *   created_at: string
  * }>}
  */
-async function generatePrediction(orders, dayOfWeek, timeOfDay) {
+async function generatePrediction(orders, dayOfWeek, timeOfDay, previousPredictions = null) {
   const summary = buildOrderSummary(orders, dayOfWeek, timeOfDay);
   const request = { dayOfWeek, timeOfDay, summary };
+  if (Array.isArray(previousPredictions) && previousPredictions.length > 0) {
+    request.previousRecommendations = previousPredictions.map((p) => ({
+      recommendedRestaurant: p.predicted_restaurant,
+      recommendedItems: p.predicted_items,
+      reasoning: p.reasoning || null
+    }));
+  }
   const result = await invokeHelper(request);
 
   return {
-    predicted_restaurant: result.predictedRestaurant,
-    predicted_items: result.predictedItems,
+    predicted_restaurant: result.recommendedRestaurant,
+    predicted_items: result.recommendedItems,
     confidence_score: result.confidenceScore,
     reasoning: result.reasoning,
     source: result.source || 'apple-foundation-models',

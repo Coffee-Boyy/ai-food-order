@@ -478,6 +478,31 @@ function error(status, message) {
   return err;
 }
 
+/**
+ * All prior AI suggestions for the same day-of-week and time-of-day as `leafId`,
+ * oldest first, so the model can avoid repeating any of them when generating a revision.
+ */
+function buildPreviousPredictionsForRevise(predictionList, leafId) {
+  const leaf = predictionList.find((p) => p.id === leafId);
+  if (!leaf) return [];
+
+  const dow = leaf.day_of_week;
+  const tod = leaf.time_of_day;
+
+  const sameSlot = predictionList.filter(
+    (p) => p.day_of_week === dow && p.time_of_day === tod
+  );
+
+  return sameSlot
+    .slice()
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .map((p) => ({
+      predicted_restaurant: p.predicted_restaurant,
+      predicted_items: p.predicted_items,
+      reasoning: p.reasoning
+    }));
+}
+
 async function handleApiRequest(method, path, body) {
   const user = getCurrentUser();
   const userId = user.id;
@@ -638,6 +663,25 @@ async function handleApiRequest(method, path, body) {
   if (method === 'GET' && path === '/api/predictions') return { predictions };
   if (method === 'GET' && path === '/api/predictions/accuracy') return { accuracy: calculatePredictionAccuracy(predictions) };
 
+  if (method === 'DELETE' && path.startsWith('/api/predictions/')) {
+    const reservedIds = new Set(['accuracy']);
+    const prefix = '/api/predictions/';
+    const predictionId = decodeURIComponent(path.slice(prefix.length));
+    if (!predictionId || predictionId.includes('/') || reservedIds.has(predictionId)) {
+      throw error(400, 'Invalid prediction id');
+    }
+    const exists = predictions.some((p) => p.id === predictionId);
+    if (!exists) throw error(404, 'Prediction not found');
+    const next = predictions.filter((p) => p.id !== predictionId);
+    store.predictionsByUser.set(userId, next);
+    try {
+      predictionsPersistence.deletePrediction(userId, predictionId);
+    } catch (err) {
+      console.error('[predictions-persistence] Failed to delete prediction', err);
+    }
+    return { success: true };
+  }
+
   if (method === 'POST' && path === '/api/predictions/generate') {
     if (orders.length === 0) throw error(400, 'Sync orders before generating predictions');
     const dayOfWeek = body?.dayOfWeek ?? new Date().getDay();
@@ -668,6 +712,52 @@ async function handleApiRequest(method, path, body) {
       day_of_week: dayOfWeek,
       time_of_day: timeOfDay,
       created_at: llmResult.created_at
+    };
+    store.predictionsByUser.set(userId, [prediction, ...predictions]);
+    try {
+      predictionsPersistence.savePrediction(userId, prediction);
+    } catch (err) {
+      console.error('[predictions-persistence] Failed to save prediction', err);
+    }
+    return { prediction };
+  }
+
+  if (method === 'POST' && path === '/api/predictions/revise') {
+    if (orders.length === 0) throw error(400, 'Sync orders before generating predictions');
+    const parentId = body?.predictionId;
+    if (!parentId) throw error(400, 'predictionId is required');
+    const parent = predictions.find((p) => p.id === parentId);
+    if (!parent) throw error(404, 'Prediction not found');
+    const dayOfWeek = parent.day_of_week;
+    const timeOfDay = parent.time_of_day;
+    const previousPredictions = buildPreviousPredictionsForRevise(predictions, parentId);
+    let llmResult;
+    try {
+      llmResult = await generatePrediction(orders, dayOfWeek, timeOfDay, previousPredictions);
+    } catch (llmErr) {
+      const modelErrors = new Set([
+        'deviceNotEligible',
+        'appleIntelligenceNotEnabled',
+        'modelNotReady',
+        'modelUnavailable',
+        'helperNotFound'
+      ]);
+      if (modelErrors.has(llmErr.code)) {
+        throw Object.assign(error(503, llmErr.message), { model_status: llmErr.code });
+      }
+      throw error(500, `Prediction failed: ${llmErr.message}`);
+    }
+    const prediction = {
+      id: `pred_${Date.now()}`,
+      predicted_restaurant: llmResult.predicted_restaurant,
+      predicted_items: llmResult.predicted_items,
+      confidence_score: llmResult.confidence_score,
+      reasoning: llmResult.reasoning,
+      source: llmResult.source,
+      day_of_week: dayOfWeek,
+      time_of_day: timeOfDay,
+      created_at: llmResult.created_at,
+      revision_of: parentId
     };
     store.predictionsByUser.set(userId, [prediction, ...predictions]);
     try {
