@@ -355,7 +355,7 @@ export default function Dashboard() {
                                   type="button"
                                   onClick={() => reviseMutation.mutate(recommendation.id)}
                                   disabled={recommendationActionsPending}
-                                  className="shrink-0 rounded-lg border border-gray-200 p-1.5 text-gray-600 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50 dark:border-gray-700 dark:hover:bg-primary-500/10"
+                                  className="shrink-0 cursor-pointer rounded-lg border border-gray-200 p-1.5 text-gray-600 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:hover:bg-primary-500/10"
                                   aria-label="Generate another recommendation"
                                   title="Regenerate"
                                 >
@@ -368,7 +368,7 @@ export default function Dashboard() {
                                   type="button"
                                   onClick={() => handleDeleteRecommendation(recommendation.id)}
                                   disabled={recommendationActionsPending}
-                                  className="shrink-0 rounded-lg border border-gray-200 p-1.5 text-gray-600 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 dark:border-gray-700 dark:hover:bg-red-500/10"
+                                  className="shrink-0 cursor-pointer rounded-lg border border-gray-200 p-1.5 text-gray-600 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:hover:bg-red-500/10"
                                   aria-label="Delete recommendation"
                                   title="Delete"
                                 >
@@ -383,7 +383,7 @@ export default function Dashboard() {
                                       type="button"
                                       onClick={() => handleRecommendationFeedback(recommendation.id, true)}
                                       disabled={recommendationActionsPending}
-                                      className="shrink-0 rounded-lg border border-gray-200 p-1.5 text-success-600 transition-colors hover:border-success-300 hover:bg-success-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-success-500 disabled:opacity-50 dark:border-gray-700 dark:hover:bg-success-500/10"
+                                      className="shrink-0 cursor-pointer rounded-lg border border-gray-200 p-1.5 text-success-600 transition-colors hover:border-success-300 hover:bg-success-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-success-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:hover:bg-success-500/10"
                                       aria-label="Mark as helpful"
                                       title="Helpful"
                                     >
@@ -393,7 +393,7 @@ export default function Dashboard() {
                                       type="button"
                                       onClick={() => handleRecommendationFeedback(recommendation.id, false)}
                                       disabled={recommendationActionsPending}
-                                      className="shrink-0 rounded-lg border border-gray-200 p-1.5 text-error-600 transition-colors hover:border-error-300 hover:bg-error-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:opacity-50 dark:border-gray-700 dark:hover:bg-error-500/10"
+                                      className="shrink-0 cursor-pointer rounded-lg border border-gray-200 p-1.5 text-error-600 transition-colors hover:border-error-300 hover:bg-error-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-error-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:hover:bg-error-500/10"
                                       aria-label="Mark as not helpful"
                                       title="Not helpful"
                                     >

@@ -31,6 +31,8 @@ interface OrderRecommendation {
   reasoning?: string
   source?: string
   revision_of?: string
+  /** From synced orders when `predicted_restaurant` matches `storeInfo.title` / `restaurant_name`. */
+  restaurant_image_url?: string | null
 }
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -109,7 +111,7 @@ function RecentRecommendationCard({
   const primaryWashOpacity = pct !== null ? 0.06 + (pct / 100) * 0.14 : 0
 
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-gray-200/90 bg-linear-to-br from-white via-white to-primary-25/40 shadow-theme-sm ring-1 ring-black/[0.03] transition-[box-shadow,transform] duration-300 hover:-translate-y-0.5 hover:shadow-theme-md dark:border-gray-800 dark:from-gray-900/90 dark:via-gray-900/70 dark:to-primary-950/30 dark:ring-white/[0.06]">
+    <article className="group relative overflow-hidden rounded-2xl border border-gray-200/90 bg-linear-to-br from-white via-white to-primary-25/40 shadow-theme-sm ring-1 ring-black/[0.03] transition-shadow duration-300 hover:shadow-theme-md dark:border-gray-800 dark:from-gray-900/90 dark:via-gray-900/70 dark:to-primary-950/30 dark:ring-white/[0.06]">
       {pct !== null ? (
         <div
           className="pointer-events-none absolute inset-0 bg-linear-to-br from-transparent via-transparent to-primary-500 dark:to-primary-600"
@@ -126,10 +128,21 @@ function RecentRecommendationCard({
       <div className="relative flex flex-col gap-4 p-4 pl-5 sm:flex-row sm:items-start sm:gap-5 sm:p-5 sm:pl-6">
         <div className="flex shrink-0 items-start gap-3">
           <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-primary-100 to-primary-50 text-sm font-semibold tracking-tight text-primary-800 shadow-inner ring-1 ring-primary-200/80 dark:from-primary-900/50 dark:to-primary-950/40 dark:text-primary-200 dark:ring-primary-800/60"
+            className="relative h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-linear-to-br from-primary-100 to-primary-50 shadow-inner ring-1 ring-primary-200/80 dark:from-primary-900/50 dark:to-primary-950/40 dark:ring-primary-800/60"
             aria-hidden
           >
-            {restaurantInitials(recommendation.predicted_restaurant)}
+            {recommendation.restaurant_image_url ? (
+              <img
+                src={recommendation.restaurant_image_url}
+                alt=""
+                className="h-full w-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-sm font-semibold tracking-tight text-primary-800 dark:text-primary-200">
+                {restaurantInitials(recommendation.predicted_restaurant)}
+              </div>
+            )}
           </div>
           <div className="min-w-0 flex-1 sm:hidden">
             <div className="flex flex-wrap items-center gap-2">

@@ -551,6 +551,126 @@ function buildOrderStats(orders) {
   return { total_orders, total_spent, avg_order_value, unique_restaurants, order_days };
 }
 
+/** Normalize restaurant titles for matching AI output to synced Uber order rows. */
+function normalizeRestaurantKey(name) {
+  if (typeof name !== 'string') return '';
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .replace(/['']/g, '')
+    .replace(/[^a-z0-9\s]/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Uber payloads vary; scan normalized order + nested store blobs for a usable hero/thumbnail URL. */
+function extractHeroImageUrlFromOrder(order) {
+  if (!order || typeof order !== 'object') return null;
+  const storeBlobs = [
+    order.storeInfo,
+    order.baseEaterOrder?.storeInfo,
+    order.restaurant_details,
+    order.restaurant
+  ].filter((x) => x && typeof x === 'object');
+
+  for (const si of storeBlobs) {
+    const candidates = [
+      si.heroImageUrl,
+      si.hero_image_url,
+      si.heroImage?.url,
+      si.hero_image?.url,
+      si.image?.url,
+      typeof si.image === 'string' ? si.image : null,
+      si.bannerImageUrl,
+      si.logoUrl,
+      si.logo?.url
+    ];
+    for (const c of candidates) {
+      if (typeof c !== 'string') continue;
+      const t = c.trim();
+      if (/^https?:\/\//i.test(t)) return t;
+      if (t.startsWith('//')) return `https:${t}`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Map normalized restaurant name → hero image URL from order history (newest order wins per name).
+ */
+function buildRestaurantHeroImageLookup(orders) {
+  const map = new Map();
+  const sorted = [...orders].sort((a, b) => new Date(b.order_time) - new Date(a.order_time));
+  for (const order of sorted) {
+    const url = extractHeroImageUrlFromOrder(order);
+    if (!url) continue;
+    const keys = new Set([
+      normalizeRestaurantKey(order.restaurant_name),
+      normalizeRestaurantKey(order.storeInfo?.title || ''),
+      normalizeRestaurantKey(order.baseEaterOrder?.storeInfo?.title || ''),
+      normalizeRestaurantKey(order.restaurant?.name || '')
+    ]);
+    for (const key of keys) {
+      if (key && !map.has(key)) map.set(key, url);
+    }
+  }
+  return map;
+}
+
+function heroImageUrlForPredictedRestaurant(lookup, predictedRestaurant, orders) {
+  const key = normalizeRestaurantKey(predictedRestaurant);
+  if (!key) return null;
+  if (lookup.has(key)) return lookup.get(key);
+
+  let bestUrl = null;
+  let bestScore = 0;
+  for (const [regKey, url] of lookup.entries()) {
+    if (!regKey || regKey.length < 3) continue;
+    const shorter = key.length <= regKey.length ? key : regKey;
+    const longer = key.length > regKey.length ? key : regKey;
+    if (shorter.length < 3) continue;
+    if (longer.includes(shorter)) {
+      const score = shorter.length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestUrl = url;
+      }
+    }
+  }
+  if (bestUrl) return bestUrl;
+
+  const sorted = [...(orders || [])].sort((a, b) => new Date(b.order_time) - new Date(a.order_time));
+  for (const order of sorted) {
+    const url = extractHeroImageUrlFromOrder(order);
+    if (!url) continue;
+    const candidates = [
+      normalizeRestaurantKey(order.restaurant_name),
+      normalizeRestaurantKey(order.storeInfo?.title || ''),
+      normalizeRestaurantKey(order.baseEaterOrder?.storeInfo?.title || ''),
+      normalizeRestaurantKey(order.restaurant?.name || '')
+    ].filter(Boolean);
+    for (const c of candidates) {
+      if (c.length < 3) continue;
+      const shorter = key.length <= c.length ? key : c;
+      const longer = key.length > c.length ? key : c;
+      if (longer.includes(shorter)) return url;
+    }
+  }
+  return null;
+}
+
+/** Attach `restaurant_image_url` from synced orders when names match (response-only, not persisted). */
+function enrichPredictionsWithHeroImages(predictions, orders) {
+  if (!predictions?.length) return predictions || [];
+  const lookup = buildRestaurantHeroImageLookup(orders);
+  return predictions.map((p) => ({
+    ...p,
+    restaurant_image_url: heroImageUrlForPredictedRestaurant(lookup, p.predicted_restaurant, orders)
+  }));
+}
+
 function calculatePredictionAccuracy(predictions) {
   const total_predictions = predictions.length;
   const correct_predictions = predictions.filter((p) => p.is_correct === true).length;
@@ -827,7 +947,8 @@ async function handleApiRequest(method, path, body) {
   }
 
   if (method === 'GET' && path === '/api/predictions') {
-    return { predictions: getUberSession(appUserId) ? predictions : [] };
+    const list = getUberSession(appUserId) ? predictions : [];
+    return { predictions: enrichPredictionsWithHeroImages(list, orders) };
   }
   if (method === 'GET' && path === '/api/predictions/accuracy') {
     return {
@@ -895,7 +1016,8 @@ async function handleApiRequest(method, path, body) {
     } catch (err) {
       console.error('[predictions-persistence] Failed to save prediction', err);
     }
-    return { prediction };
+    const [enriched] = enrichPredictionsWithHeroImages([prediction], orders);
+    return { prediction: enriched };
   }
 
   if (method === 'POST' && path === '/api/predictions/revise') {
@@ -942,7 +1064,8 @@ async function handleApiRequest(method, path, body) {
     } catch (err) {
       console.error('[predictions-persistence] Failed to save prediction', err);
     }
-    return { prediction };
+    const [enrichedRevise] = enrichPredictionsWithHeroImages([prediction], orders);
+    return { prediction: enrichedRevise };
   }
 
   if (method === 'POST' && path === '/api/predictions/feedback') {
